@@ -34,8 +34,37 @@ public struct QuickTabItem: Identifiable, Hashable {
     }
 }
 
+public struct HasteDataPayload: Codable {
+    public var accounts: [Account]
+    public var scheduledBills: [ScheduledBill]
+    public var budgetCategories: [BudgetCategory]
+
+    public init(
+        accounts: [Account] = [],
+        scheduledBills: [ScheduledBill] = [],
+        budgetCategories: [BudgetCategory] = []
+    ) {
+        self.accounts = accounts
+        self.scheduledBills = scheduledBills
+        self.budgetCategories = budgetCategories
+    }
+}
+
 public final class DataStore: ObservableObject {
     public static let shared = DataStore()
+
+    public static var standardDataDirectoryURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let hasteDir = appSupport.appendingPathComponent("Haste", isDirectory: true)
+        if !FileManager.default.fileExists(atPath: hasteDir.path) {
+            try? FileManager.default.createDirectory(at: hasteDir, withIntermediateDirectories: true)
+        }
+        return hasteDir
+    }
+
+    public static var standardDataFileURL: URL {
+        standardDataDirectoryURL.appendingPathComponent("haste_data.json")
+    }
 
     @Published public var accounts: [Account] = []
     @Published public var selectedAccountId: String? = nil
@@ -71,57 +100,64 @@ public final class DataStore: ObservableObject {
     @Published public var budgetCategories: [BudgetCategory] = []
 
     public init() {
-        initDefaultBudgetsAndBills()
-        loadDefaultQuickenData()
+        loadedDirectoryPath = DataStore.standardDataDirectoryURL.path
+        loadStandardData()
     }
 
-    private func initDefaultBudgetsAndBills() {
-        budgetCategories = [
-            BudgetCategory(categoryName: "Salary", isIncome: true, monthlyBudget: 4500.0),
-            BudgetCategory(categoryName: "Dividend", isIncome: true, monthlyBudget: 150.0),
-            BudgetCategory(categoryName: "Mortgage / Rent", isIncome: false, monthlyBudget: 1200.0),
-            BudgetCategory(categoryName: "Utilities", isIncome: false, monthlyBudget: 250.0),
-            BudgetCategory(categoryName: "Groceries", isIncome: false, monthlyBudget: 500.0),
-            BudgetCategory(categoryName: "Auto / Gas", isIncome: false, monthlyBudget: 180.0),
-            BudgetCategory(categoryName: "Insurance", isIncome: false, monthlyBudget: 120.0),
-            BudgetCategory(categoryName: "Entertainment", isIncome: false, monthlyBudget: 150.0),
-            BudgetCategory(categoryName: "Medical", isIncome: false, monthlyBudget: 100.0)
-        ]
+    public func loadStandardData() {
+        let fileURL = DataStore.standardDataFileURL
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                let data = try Data(contentsOf: fileURL)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                let payload = try decoder.decode(HasteDataPayload.self, from: data)
+                self.accounts = payload.accounts
+                self.scheduledBills = payload.scheduledBills
+                self.budgetCategories = payload.budgetCategories
+                self.selectedAccountId = payload.accounts.first?.id
+                return
+            } catch {
+                print("Notice: could not decode standard data: \(error.localizedDescription)")
+            }
+        }
 
-        let cal = Calendar.current
-        let today = Date()
-        let nextWeek = cal.date(byAdding: .day, value: 5, to: today) ?? today
-        let nextTwoWeeks = cal.date(byAdding: .day, value: 12, to: today) ?? today
+        // If no JSON payload exists, scan standard directory for any .qif files
+        let standardPath = DataStore.standardDataDirectoryURL.path
+        var loadedAccounts: [Account] = []
+        if let items = try? FileManager.default.contentsOfDirectory(atPath: standardPath) {
+            for item in items where item.lowercased().hasSuffix(".qif") {
+                let fullPath = (standardPath as NSString).appendingPathComponent(item)
+                if let acct = try? QIFParser.parseFile(at: fullPath) {
+                    loadedAccounts.append(acct)
+                }
+            }
+        }
 
-        scheduledBills = [
-            ScheduledBill(
-                payee: "Electric Utility Co.",
-                amount: 114.50,
-                frequency: .monthly,
-                nextDueDate: nextWeek,
-                accountName: "Checking",
-                category: "Utilities",
-                memo: "Monthly power bill"
-            ),
-            ScheduledBill(
-                payee: "Pacific Bell / AT&T",
-                amount: 68.20,
-                frequency: .monthly,
-                nextDueDate: nextTwoWeeks,
-                accountName: "Checking",
-                category: "Utilities:Telephone",
-                memo: "Landline & Internet"
-            ),
-            ScheduledBill(
-                payee: "State Farm Insurance",
-                amount: 85.00,
-                frequency: .monthly,
-                nextDueDate: nextTwoWeeks,
-                accountName: "Checking",
-                category: "Insurance",
-                memo: "Auto policy #2948-1A"
-            )
-        ]
+        if !loadedAccounts.isEmpty {
+            self.accounts = loadedAccounts.sorted { $0.name < $1.name }
+            self.selectedAccountId = self.accounts.first?.id
+        } else {
+            // Open completely empty if there is no data
+            self.accounts = []
+            self.scheduledBills = []
+            self.budgetCategories = []
+            self.selectedAccountId = nil
+        }
+    }
+
+    public func saveStandardData() {
+        let payload = HasteDataPayload(
+            accounts: accounts,
+            scheduledBills: scheduledBills,
+            budgetCategories: budgetCategories
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        if let data = try? encoder.encode(payload) {
+            try? data.write(to: DataStore.standardDataFileURL, options: .atomic)
+        }
     }
 
     public var selectedAccount: Account? {
@@ -220,6 +256,7 @@ public final class DataStore: ObservableObject {
             accounts[idx].transactions[i].runningBalance = running
         }
         accounts[idx].balance = running
+        saveStandardData()
     }
 
     // MARK: - Account Management
@@ -250,6 +287,7 @@ public final class DataStore: ObservableObject {
         accounts.sort { $0.name < $1.name }
         selectedAccountId = newAcct.id
         activeQuickTab = "register"
+        saveStandardData()
     }
 
     public func deleteAccount(id: String) {
@@ -257,6 +295,7 @@ public final class DataStore: ObservableObject {
         if selectedAccountId == id {
             selectedAccountId = accounts.first?.id
         }
+        saveStandardData()
     }
 
     // MARK: - Reconcile Logic
@@ -386,15 +425,14 @@ public final class DataStore: ObservableObject {
             case .once:
                 break
             }
+            saveStandardData()
         }
     }
 
     // MARK: - Directory Loading & File IO
 
     public func loadDefaultQuickenData() {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        let targetPath = home.appendingPathComponent("Downloads/Quicken Data").path
-        loadDirectory(path: targetPath)
+        loadStandardData()
     }
 
     public func loadDirectory(path: String) {

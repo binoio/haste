@@ -1,6 +1,6 @@
 # Haste for Apple Silicon
 
-Native macOS (Apple Silicon arm64) implementation and data format suite for **Haste**, reverse-engineered from the original 1999–2000 Win32 financial engine (`QW.EXE`).
+Native macOS (Apple Silicon arm64) personal finance application and data suite.
 
 ---
 
@@ -14,22 +14,6 @@ Native macOS (Apple Silicon arm64) implementation and data format suite for **Ha
 > **Trademark Notice**: "Quicken", "Quicken Deluxe", and associated logos, product names, and trade dress are registered trademarks of their respective trademark holders. Reference to these names is made solely for descriptive, historical, and comparative purposes under nominative fair use.
 >
 > **Disclaimer of Warranty**: The software is provided "AS IS", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and noninfringement.
-
----
-
-## Architecture & Reverse Engineering Analysis
-
-The financial engine was distributed via 12-volume InstallShield 5 cabinet archives (`DATA1.CAB` through `DATA12.CAB`). Extraction revealed a multi-tiered financial engine:
-
-| Module | Subsystem | Format / Specification |
-| :--- | :--- | :--- |
-| `QW.EXE` | Main UI & Application | Win32 MFC Desktop Application |
-| `QDB.DLL` | Core Database Engine | ISAM database with 4,088-byte pages (`0xFF8`), magic `0x8FBD9EAC`, version `0x00020000` |
-| Cryptography | Security Subsystem | Intuit RC5-32/16/16 cipher ($P_{32}=0xB7E15163, Q_{32}=0x9E3779B9$) with MD5 page MAC integrity |
-| `QWENC.DLL` | Credential Obfuscation | 32-bit bidirectional rotating cipher (`_lrotl` / `_lrotr`) |
-| `QACCES32.DLL`| Account & Transaction API | c-tree B-Tree data structures, split items, and portfolio management |
-| `QSD` | Structured Data | Length-prefixed string tables holding account names, categories, and views |
-| `QIF` | Quicken Interchange Format | Tagged ASCII records (`!Type:Bank`, `D`, `T`, `C`, `P`, `M`, `L`, `S`, `$`, `^`) |
 
 ---
 

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct BudgetCategory: Identifiable, Hashable {
+public struct BudgetCategory: Identifiable, Hashable, Codable {
     public let id: UUID
     public var categoryName: String
     public var isIncome: Bool

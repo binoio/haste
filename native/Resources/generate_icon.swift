@@ -8,26 +8,26 @@ guard let ctx = NSGraphicsContext.current?.cgContext else {
     exit(1)
 }
 
-// 1. Background squircle filling the standard macOS squircle area (824x824 inside 1024x1024)
+// 1. macOS Squircle on Green Field (824x824 inside 1024x1024)
 let squircleRect = CGRect(x: 100, y: 100, width: 824, height: 824)
 let squirclePath = CGPath(roundedRect: squircleRect, cornerWidth: 185, cornerHeight: 185, transform: nil)
 
-// Drop shadow for the entire squircle
+// Drop shadow for the squircle
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -20), blur: 35, color: NSColor.black.withAlphaComponent(0.45).cgColor)
+ctx.setShadow(offset: CGSize(width: 0, height: -22), blur: 36, color: NSColor.black.withAlphaComponent(0.40).cgColor)
 ctx.addPath(squirclePath)
-ctx.setFillColor(NSColor(red: 0.04, green: 0.20, blue: 0.12, alpha: 1.0).cgColor)
+ctx.setFillColor(NSColor(red: 0.05, green: 0.22, blue: 0.13, alpha: 1.0).cgColor)
 ctx.fillPath()
 ctx.restoreGState()
 
-// Forest Emerald Gradient Fill
+// Forest Emerald Gradient Fill on Green Field
 let colorSpace = CGColorSpaceCreateDeviceRGB()
 let greenColors = [
-    NSColor(red: 0.08, green: 0.32, blue: 0.18, alpha: 1.0).cgColor,
-    NSColor(red: 0.04, green: 0.18, blue: 0.10, alpha: 1.0).cgColor,
-    NSColor(red: 0.02, green: 0.11, blue: 0.06, alpha: 1.0).cgColor
+    NSColor(red: 0.08, green: 0.35, blue: 0.20, alpha: 1.0).cgColor,
+    NSColor(red: 0.04, green: 0.22, blue: 0.12, alpha: 1.0).cgColor,
+    NSColor(red: 0.02, green: 0.13, blue: 0.07, alpha: 1.0).cgColor
 ] as CFArray
-let greenLocations: [CGFloat] = [0.0, 0.65, 1.0]
+let greenLocations: [CGFloat] = [0.0, 0.55, 1.0]
 
 if let greenGradient = CGGradient(colorsSpace: colorSpace, colors: greenColors, locations: greenLocations) {
     ctx.saveGState()
@@ -35,155 +35,199 @@ if let greenGradient = CGGradient(colorsSpace: colorSpace, colors: greenColors, 
     ctx.clip()
     ctx.drawLinearGradient(greenGradient, start: CGPoint(x: 100, y: 924), end: CGPoint(x: 924, y: 100), options: [])
 
-    // Subtle radial highlight at top-left
-    let radialColors = [
-        NSColor(red: 0.20, green: 0.65, blue: 0.35, alpha: 0.35).cgColor,
+    // Soft ambient highlight over the green field
+    let glowColors = [
+        NSColor(red: 0.22, green: 0.68, blue: 0.38, alpha: 0.30).cgColor,
         NSColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0).cgColor
     ] as CFArray
-    if let radialGrad = CGGradient(colorsSpace: colorSpace, colors: radialColors, locations: [0.0, 1.0]) {
-        ctx.drawRadialGradient(radialGrad, startCenter: CGPoint(x: 300, y: 750), startRadius: 10, endCenter: CGPoint(x: 300, y: 750), endRadius: 450, options: [])
+    if let glowGrad = CGGradient(colorsSpace: colorSpace, colors: glowColors, locations: [0.0, 1.0]) {
+        ctx.drawRadialGradient(glowGrad, startCenter: CGPoint(x: 280, y: 760), startRadius: 20, endCenter: CGPoint(x: 280, y: 760), endRadius: 520, options: [])
     }
-
     ctx.restoreGState()
 }
 
-// Gold Border on Squircle
+// Subtle Gold Border on Squircle perimeter
 ctx.saveGState()
 ctx.addPath(squirclePath)
-let goldBorderColors = [
-    NSColor(red: 0.98, green: 0.88, blue: 0.52, alpha: 0.75).cgColor,
-    NSColor(red: 0.75, green: 0.58, blue: 0.22, alpha: 0.50).cgColor,
-    NSColor(red: 0.95, green: 0.82, blue: 0.45, alpha: 0.70).cgColor
+let borderColors = [
+    NSColor(red: 0.96, green: 0.85, blue: 0.48, alpha: 0.60).cgColor,
+    NSColor(red: 0.70, green: 0.52, blue: 0.20, alpha: 0.35).cgColor,
+    NSColor(red: 0.92, green: 0.78, blue: 0.40, alpha: 0.55).cgColor
 ] as CFArray
-if let goldBorderGrad = CGGradient(colorsSpace: colorSpace, colors: goldBorderColors, locations: [0.0, 0.5, 1.0]) {
-    ctx.setLineWidth(10)
+if let borderGrad = CGGradient(colorsSpace: colorSpace, colors: borderColors, locations: [0.0, 0.5, 1.0]) {
+    ctx.setLineWidth(8)
     ctx.replacePathWithStrokedPath()
     ctx.clip()
-    ctx.drawLinearGradient(goldBorderGrad, start: CGPoint(x: 100, y: 924), end: CGPoint(x: 924, y: 100), options: [])
+    ctx.drawLinearGradient(borderGrad, start: CGPoint(x: 100, y: 924), end: CGPoint(x: 924, y: 100), options: [])
 }
 ctx.restoreGState()
 
-// 2. Decorative Golden Sunburst / Compass Geometry
-ctx.saveGState()
+// 2. The Gold Coin (Centered at 512, 512)
 let centerX: CGFloat = 512
-let centerY: CGFloat = 540
+let centerY: CGFloat = 512
+let coinRadius: CGFloat = 280
 
-// Concentric gold rings
-let ringPath = CGMutablePath()
-ringPath.addEllipse(in: CGRect(x: centerX - 260, y: centerY - 260, width: 520, height: 520))
-ringPath.addEllipse(in: CGRect(x: centerX - 248, y: centerY - 248, width: 496, height: 496))
+let coinCircleRect = CGRect(x: centerX - coinRadius, y: centerY - coinRadius, width: coinRadius * 2, height: coinRadius * 2)
+let coinPath = CGPath(ellipseIn: coinCircleRect, transform: nil)
 
-ctx.addPath(ringPath)
-ctx.setFillColor(NSColor(red: 0.85, green: 0.70, blue: 0.30, alpha: 0.35).cgColor)
+// Coin Cast Shadow onto the Green Field
+ctx.saveGState()
+ctx.setShadow(offset: CGSize(width: 0, height: -18), blur: 32, color: NSColor.black.withAlphaComponent(0.65).cgColor)
+ctx.addPath(coinPath)
+ctx.setFillColor(NSColor(red: 0.55, green: 0.38, blue: 0.10, alpha: 1.0).cgColor)
 ctx.fillPath()
-
-// Radiating gold diamond nodes
-for i in 0..<8 {
-    let angle = CGFloat(i) * (.pi / 4.0)
-    let radius: CGFloat = 254
-    let nx = centerX + radius * cos(angle)
-    let ny = centerY + radius * sin(angle)
-
-    let diamond = CGMutablePath()
-    let dSize: CGFloat = (i % 2 == 0) ? 14 : 9
-    diamond.move(to: CGPoint(x: nx, y: ny + dSize))
-    diamond.addLine(to: CGPoint(x: nx + dSize, y: ny))
-    diamond.addLine(to: CGPoint(x: nx, y: ny - dSize))
-    diamond.addLine(to: CGPoint(x: nx - dSize, y: ny))
-    diamond.closeSubpath()
-
-    ctx.addPath(diamond)
-    ctx.setFillColor(NSColor(red: 0.98, green: 0.88, blue: 0.55, alpha: 0.85).cgColor)
-    ctx.fillPath()
-}
 ctx.restoreGState()
 
-// 3. Central Gold Emblem: Sculpted Architectural "H" Monogram with Ingot Depth
-ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -14), blur: 24, color: NSColor.black.withAlphaComponent(0.6).cgColor)
-
-let hEmblemPath = CGMutablePath()
-
-// Left Pillar
-hEmblemPath.addRoundedRect(in: CGRect(x: centerX - 180, y: centerY - 170, width: 75, height: 340), cornerWidth: 14, cornerHeight: 14)
-// Right Pillar
-hEmblemPath.addRoundedRect(in: CGRect(x: centerX + 105, y: centerY - 170, width: 75, height: 340), cornerWidth: 14, cornerHeight: 14)
-// Crossbar
-hEmblemPath.addRoundedRect(in: CGRect(x: centerX - 180, y: centerY - 38, width: 360, height: 76), cornerWidth: 14, cornerHeight: 14)
-
-// Center Facet Diamond in crossbar
-let centerDiamond = CGMutablePath()
-centerDiamond.move(to: CGPoint(x: centerX, y: centerY + 65))
-centerDiamond.addLine(to: CGPoint(x: centerX + 45, y: centerY))
-centerDiamond.addLine(to: CGPoint(x: centerX, y: centerY - 65))
-centerDiamond.addLine(to: CGPoint(x: centerX - 45, y: centerY))
-centerDiamond.closeSubpath()
-
-// Gold Gradient for Emblem
-let goldIngotColors = [
-    NSColor(red: 1.00, green: 0.96, blue: 0.82, alpha: 1.0).cgColor,
-    NSColor(red: 0.96, green: 0.82, blue: 0.42, alpha: 1.0).cgColor,
-    NSColor(red: 0.84, green: 0.65, blue: 0.24, alpha: 1.0).cgColor,
-    NSColor(red: 0.62, green: 0.44, blue: 0.12, alpha: 1.0).cgColor
+// Coin Outer Bezel / Rim Gradient
+let goldRimColors = [
+    NSColor(red: 1.00, green: 0.94, blue: 0.72, alpha: 1.0).cgColor,
+    NSColor(red: 0.95, green: 0.82, blue: 0.42, alpha: 1.0).cgColor,
+    NSColor(red: 0.82, green: 0.62, blue: 0.22, alpha: 1.0).cgColor,
+    NSColor(red: 0.60, green: 0.42, blue: 0.12, alpha: 1.0).cgColor
 ] as CFArray
-let goldIngotLocations: [CGFloat] = [0.0, 0.35, 0.70, 1.0]
+let goldLocations: [CGFloat] = [0.0, 0.32, 0.70, 1.0]
 
-if let goldGrad = CGGradient(colorsSpace: colorSpace, colors: goldIngotColors, locations: goldIngotLocations) {
+if let goldGrad = CGGradient(colorsSpace: colorSpace, colors: goldRimColors, locations: goldLocations) {
     ctx.saveGState()
-    ctx.addPath(hEmblemPath)
+    ctx.addPath(coinPath)
     ctx.clip()
-    ctx.drawLinearGradient(goldGrad, start: CGPoint(x: centerX - 180, y: centerY + 180), end: CGPoint(x: centerX + 180, y: centerY - 180), options: [])
-    ctx.restoreGState()
-
-    // Draw center diamond accent
-    ctx.saveGState()
-    ctx.addPath(centerDiamond)
-    ctx.clip()
-    ctx.drawLinearGradient(goldGrad, start: CGPoint(x: centerX, y: centerY + 65), end: CGPoint(x: centerX, y: centerY - 65), options: [])
+    ctx.drawLinearGradient(goldGrad, start: CGPoint(x: centerX - coinRadius, y: centerY + coinRadius), end: CGPoint(x: centerX + coinRadius, y: centerY - coinRadius), options: [])
     ctx.restoreGState()
 }
 
-// Emblem Inner Bevel / Highlight Stroke
+// Coin Inner Face
+let innerRadius: CGFloat = coinRadius - 26
+let innerCoinRect = CGRect(x: centerX - innerRadius, y: centerY - innerRadius, width: innerRadius * 2, height: innerRadius * 2)
+let innerCoinPath = CGPath(ellipseIn: innerCoinRect, transform: nil)
+
+let innerGoldColors = [
+    NSColor(red: 0.98, green: 0.90, blue: 0.58, alpha: 1.0).cgColor,
+    NSColor(red: 0.91, green: 0.76, blue: 0.34, alpha: 1.0).cgColor,
+    NSColor(red: 0.78, green: 0.58, blue: 0.20, alpha: 1.0).cgColor,
+    NSColor(red: 0.65, green: 0.46, blue: 0.14, alpha: 1.0).cgColor
+] as CFArray
+
+if let innerGrad = CGGradient(colorsSpace: colorSpace, colors: innerGoldColors, locations: [0.0, 0.35, 0.75, 1.0]) {
+    ctx.saveGState()
+    ctx.addPath(innerCoinPath)
+    ctx.clip()
+    ctx.drawLinearGradient(innerGrad, start: CGPoint(x: centerX - innerRadius * 0.7, y: centerY + innerRadius * 0.9), end: CGPoint(x: centerX + innerRadius * 0.8, y: centerY - innerRadius * 0.9), options: [])
+
+    // Specular radial glow on coin face
+    let specColors = [
+        NSColor(red: 1.00, green: 0.98, blue: 0.88, alpha: 0.45).cgColor,
+        NSColor(red: 0.95, green: 0.80, blue: 0.35, alpha: 0.0).cgColor
+    ] as CFArray
+    if let specGrad = CGGradient(colorsSpace: colorSpace, colors: specColors, locations: [0.0, 1.0]) {
+        ctx.drawRadialGradient(specGrad, startCenter: CGPoint(x: centerX - 60, y: centerY + 90), startRadius: 10, endCenter: CGPoint(x: centerX - 60, y: centerY + 90), endRadius: 240, options: [])
+    }
+    ctx.restoreGState()
+}
+
+// Inner Beaded Ring (classic numismatic coin detail)
 ctx.saveGState()
-ctx.addPath(hEmblemPath)
-ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.6).cgColor)
-ctx.setLineWidth(4)
+let beadCount = 48
+let beadRingRadius: CGFloat = innerRadius - 16
+for i in 0..<beadCount {
+    let angle = CGFloat(i) * (2.0 * .pi / CGFloat(beadCount))
+    let bx = centerX + beadRingRadius * cos(angle)
+    let by = centerY + beadRingRadius * sin(angle)
+    let beadRect = CGRect(x: bx - 3.5, y: by - 3.5, width: 7.0, height: 7.0)
+    ctx.addEllipse(in: beadRect)
+}
+ctx.setFillColor(NSColor(red: 0.98, green: 0.92, blue: 0.65, alpha: 0.75).cgColor)
+ctx.fillPath()
+ctx.restoreGState()
+
+// Inner coin groove ring
+ctx.saveGState()
+let grooveRadius: CGFloat = innerRadius - 28
+let grooveRect = CGRect(x: centerX - grooveRadius, y: centerY - grooveRadius, width: grooveRadius * 2, height: grooveRadius * 2)
+ctx.addEllipse(in: grooveRect)
+ctx.setStrokeColor(NSColor(red: 0.58, green: 0.40, blue: 0.12, alpha: 0.65).cgColor)
+ctx.setLineWidth(3)
 ctx.strokePath()
 ctx.restoreGState()
 
-// 4. Typography: "H A S T E" in Gold
-let title = "H A S T E"
-let titleFont = NSFont.systemFont(ofSize: 56, weight: .heavy)
-let titleShadow = NSShadow()
-titleShadow.shadowColor = NSColor.black.withAlphaComponent(0.65)
-titleShadow.shadowOffset = NSSize(width: 0, height: -4)
-titleShadow.shadowBlurRadius = 8
+// 3. The Stamped "H" on the Coin
+let hPath = CGMutablePath()
+let pillarW: CGFloat = 46
+let pillarH: CGFloat = 250
+let span: CGFloat = 100
+let barH: CGFloat = 44
 
-let titleAttrs: [NSAttributedString.Key: Any] = [
-    .font: titleFont,
-    .foregroundColor: NSColor(red: 0.96, green: 0.86, blue: 0.54, alpha: 1.0),
-    .shadow: titleShadow,
-    .kern: 10.0
-]
-let titleSize = title.size(withAttributes: titleAttrs)
-let titlePoint = CGPoint(x: (size - titleSize.width) / 2, y: 220)
-title.draw(at: titlePoint, withAttributes: titleAttrs)
+// Left Pillar with serif caps
+hPath.addRoundedRect(in: CGRect(x: centerX - span - pillarW / 2, y: centerY - pillarH / 2, width: pillarW, height: pillarH), cornerWidth: 8, cornerHeight: 8)
+// Left serifs
+hPath.addRoundedRect(in: CGRect(x: centerX - span - pillarW / 2 - 16, y: centerY + pillarH / 2 - 14, width: pillarW + 32, height: 14), cornerWidth: 4, cornerHeight: 4)
+hPath.addRoundedRect(in: CGRect(x: centerX - span - pillarW / 2 - 16, y: centerY - pillarH / 2, width: pillarW + 32, height: 14), cornerWidth: 4, cornerHeight: 4)
 
-// Subtitle: "FINANCIAL SUITE"
-let sub = "FINANCIAL SUITE"
-let subFont = NSFont.monospacedSystemFont(ofSize: 22, weight: .bold)
-let subAttrs: [NSAttributedString.Key: Any] = [
-    .font: subFont,
-    .foregroundColor: NSColor(red: 0.75, green: 0.90, blue: 0.80, alpha: 0.85),
-    .kern: 4.0
-]
-let subSize = sub.size(withAttributes: subAttrs)
-let subPoint = CGPoint(x: (size - subSize.width) / 2, y: 175)
-sub.draw(at: subPoint, withAttributes: subAttrs)
+// Right Pillar with serif caps
+hPath.addRoundedRect(in: CGRect(x: centerX + span - pillarW / 2, y: centerY - pillarH / 2, width: pillarW, height: pillarH), cornerWidth: 8, cornerHeight: 8)
+// Right serifs
+hPath.addRoundedRect(in: CGRect(x: centerX + span - pillarW / 2 - 16, y: centerY + pillarH / 2 - 14, width: pillarW + 32, height: 14), cornerWidth: 4, cornerHeight: 4)
+hPath.addRoundedRect(in: CGRect(x: centerX + span - pillarW / 2 - 16, y: centerY - pillarH / 2, width: pillarW + 32, height: 14), cornerWidth: 4, cornerHeight: 4)
+
+// Crossbar
+hPath.addRoundedRect(in: CGRect(x: centerX - span, y: centerY - barH / 2, width: span * 2, height: barH), cornerWidth: 6, cornerHeight: 6)
+
+// Stamped Depth: Shadow under the H
+ctx.saveGState()
+ctx.setShadow(offset: CGSize(width: 0, height: -8), blur: 14, color: NSColor.black.withAlphaComponent(0.55).cgColor)
+ctx.addPath(hPath)
+ctx.setFillColor(NSColor(red: 0.45, green: 0.30, blue: 0.08, alpha: 1.0).cgColor)
+ctx.fillPath()
+ctx.restoreGState()
+
+// Stamped Relief: Raised Gold Gradient on the H
+let hGoldColors = [
+    NSColor(red: 1.00, green: 0.97, blue: 0.86, alpha: 1.0).cgColor,
+    NSColor(red: 0.98, green: 0.86, blue: 0.46, alpha: 1.0).cgColor,
+    NSColor(red: 0.86, green: 0.68, blue: 0.26, alpha: 1.0).cgColor,
+    NSColor(red: 0.68, green: 0.48, blue: 0.16, alpha: 1.0).cgColor
+] as CFArray
+
+if let hGrad = CGGradient(colorsSpace: colorSpace, colors: hGoldColors, locations: [0.0, 0.30, 0.70, 1.0]) {
+    ctx.saveGState()
+    ctx.addPath(hPath)
+    ctx.clip()
+    ctx.drawLinearGradient(hGrad, start: CGPoint(x: centerX - span, y: centerY + pillarH / 2), end: CGPoint(x: centerX + span, y: centerY - pillarH / 2), options: [])
+    ctx.restoreGState()
+}
+
+// Inner Highlight Stroke for Chiseled / Struck Coin Finish
+ctx.saveGState()
+ctx.addPath(hPath)
+ctx.setLineWidth(3)
+ctx.setStrokeColor(NSColor(red: 1.0, green: 1.0, blue: 0.95, alpha: 0.7).cgColor)
+ctx.strokePath()
+ctx.restoreGState()
+
+// Stamped Star Accents on Coin Face
+let starOffsets: [CGFloat] = [-165, 165]
+for ox in starOffsets {
+    ctx.saveGState()
+    let star = CGMutablePath()
+    let sx = centerX + ox
+    let sy = centerY
+    let starRadius: CGFloat = 11
+    let innerR: CGFloat = 4.5
+    for i in 0..<10 {
+        let r = (i % 2 == 0) ? starRadius : innerR
+        let a = CGFloat(i) * (.pi / 5.0) - (.pi / 2.0)
+        let pt = CGPoint(x: sx + r * cos(a), y: sy + r * sin(a))
+        if i == 0 { star.move(to: pt) } else { star.addLine(to: pt) }
+    }
+    star.closeSubpath()
+    ctx.addPath(star)
+    ctx.setFillColor(NSColor(red: 0.98, green: 0.90, blue: 0.60, alpha: 0.85).cgColor)
+    ctx.fillPath()
+    ctx.restoreGState()
+}
 
 image.unlockFocus()
 
-// 5. Export PNG and Multi-Resolution .iconset -> .icns
+// 4. Export Multi-Resolution .iconset -> .icns
 guard let tiffData = image.tiffRepresentation,
       let bitmap = NSBitmapImageRep(data: tiffData),
       let pngData = bitmap.representation(using: .png, properties: [:]) else {
@@ -226,7 +270,6 @@ for (name, px) in iconSizes {
     }
 }
 
-// Convert iconset to icns
 let icnsUrl = scriptDir.appendingPathComponent("AppIcon.icns")
 let p = Process()
 p.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
@@ -235,4 +278,4 @@ try? p.run()
 p.waitUntilExit()
 
 try? fm.removeItem(at: iconsetDir)
-print("==> Programmatically generated green & gold AppIcon.icns successfully.")
+print("==> Programmatically generated gold coin on green field AppIcon.icns successfully.")

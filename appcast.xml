@@ -6,6 +6,25 @@
     <description>Most recent updates for Haste for Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>Haste 1.0.1</title>
+      <pubDate>Mon, 26 Oct 2026 21:45:00 -0400</pubDate>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.1 Update</h2>
+        <ul>
+          <li>Standard macOS app data location (~/Library/Application Support/Haste), opening empty when no data exists.</li>
+          <li>Refreshed app icon: gold coin on an emerald green field with stamped H monogram.</li>
+          <li>Unified top-level View menu combining all navigation and view options.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.1/Haste.zip"
+                 sparkle:version="2"
+                 sparkle:shortVersionString="1.0.1"
+                 type="application/octet-stream" />
+    </item>
+    <item>
       <title>Haste 1.0.0</title>
       <pubDate>Mon, 26 Oct 2026 21:00:00 -0400</pubDate>
       <sparkle:version>1</sparkle:version>

@@ -244,19 +244,7 @@ public struct SettingsView: View {
     }
 
     private func revealDataLocationInFinder() {
-        let path: String
-        if !store.loadedDirectoryPath.isEmpty && FileManager.default.fileExists(atPath: store.loadedDirectoryPath) {
-            path = store.loadedDirectoryPath
-        } else {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-                .appendingPathComponent("Haste")
-            if let p = appSupport {
-                try? FileManager.default.createDirectory(at: p, withIntermediateDirectories: true)
-                path = p.path
-            } else {
-                path = NSHomeDirectory()
-            }
-        }
-        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path)
+        let dirURL = DataStore.standardDataDirectoryURL
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: dirURL.path)
     }
 }

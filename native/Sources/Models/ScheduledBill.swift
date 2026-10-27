@@ -1,6 +1,6 @@
 import Foundation
 
-public enum BillFrequency: String, CaseIterable, Identifiable {
+public enum BillFrequency: String, Codable, CaseIterable, Identifiable {
     case once = "Once"
     case weekly = "Weekly"
     case biweekly = "Every 2 Weeks"
@@ -11,7 +11,7 @@ public enum BillFrequency: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
 }
 
-public struct ScheduledBill: Identifiable, Hashable {
+public struct ScheduledBill: Identifiable, Hashable, Codable {
     public let id: UUID
     public var payee: String
     public var amount: Double

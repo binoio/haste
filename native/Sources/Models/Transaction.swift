@@ -1,6 +1,6 @@
 import Foundation
 
-public struct SplitItem: Identifiable, Hashable {
+public struct SplitItem: Identifiable, Hashable, Codable {
     public let id: UUID
     public var category: String
     public var memo: String
@@ -14,7 +14,7 @@ public struct SplitItem: Identifiable, Hashable {
     }
 }
 
-public struct Transaction: Identifiable, Hashable {
+public struct Transaction: Identifiable, Hashable, Codable {
     public let id: UUID
     public var accountName: String
     public var date: Date

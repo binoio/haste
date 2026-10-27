@@ -155,6 +155,7 @@ public struct BillsRemindersView: View {
             memo: memo
         )
         store.scheduledBills.append(newBill)
+        store.saveStandardData()
         showingAddSheet = false
         payee = ""
         amountString = ""

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum AccountType: String, CaseIterable, Identifiable {
+public enum AccountType: String, Codable, CaseIterable, Identifiable {
     case bank = "Bank"
     case creditCard = "Credit Card"
     case cash = "Cash"
@@ -33,7 +33,7 @@ public enum AccountType: String, CaseIterable, Identifiable {
     }
 }
 
-public struct Account: Identifiable, Hashable {
+public struct Account: Identifiable, Hashable, Codable {
     public let id: String
     public var name: String
     public var type: AccountType

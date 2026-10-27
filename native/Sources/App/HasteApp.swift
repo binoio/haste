@@ -70,7 +70,7 @@ struct HasteCommands: Commands {
             .keyboardShortcut("e", modifiers: .command)
         }
 
-        CommandMenu("View") {
+        CommandGroup(replacing: .sidebar) {
             Button("Banking") {
                 store.selectCenter(.banking)
             }
