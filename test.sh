@@ -18,6 +18,7 @@ TEST_SOURCES=(
     native/Sources/Services/QIFParser.swift
     native/Sources/Services/CSVParser.swift
     native/Sources/Services/QDFInspector.swift
+    native/Sources/Services/DatasetScanner.swift
     native/Tests/HasteTests.swift
     native/Tests/main.swift
 )

@@ -184,6 +184,15 @@ public struct TestRunner {
             }
         }
 
+        // Test 14: DatasetScanner
+        let quickenDataPath = home.appendingPathComponent("Downloads/Quicken Data").path
+        if FileManager.default.fileExists(atPath: quickenDataPath) {
+            let scan = DatasetScanner.scan(path: quickenDataPath)
+            assert(scan.hasQIFs, "DatasetScanner detected companion QIF accounts")
+            assert(scan.discoveredQifs.count >= 6, "DatasetScanner found at least 6 accounts (got \(scan.discoveredQifs.count))")
+            assert(scan.totalTransactions > 100, "DatasetScanner counted > 100 total transactions (got \(scan.totalTransactions))")
+        }
+
         print("\nSummary: \(passed) passed, \(failed) failed.")
         return failed == 0
     }

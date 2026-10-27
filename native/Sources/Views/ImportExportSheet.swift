@@ -12,12 +12,14 @@ public struct ImportExportSheet: View {
     @ObservedObject var store: DataStore
     @Binding var isPresented: Bool
     @Binding var mode: TransferMode
+    @Environment(\.openWindow) private var openWindow
 
     // Import state
     @State private var importFilePath: String = ""
     @State private var selectedTargetAccountId: String = ""
     @State private var importPreviewTxs: [Transaction] = []
     @State private var importStatus: String = ""
+    @State private var datasetScan: DatasetScanResult? = nil
     @State private var showingImportWarningDialog: Bool = false
     @State private var warningAccountName: String = ""
     @State private var warningExistingTxCount: Int = 0
@@ -125,43 +127,47 @@ public struct ImportExportSheet: View {
                 }
             }
 
-            HStack {
-                Text("Target Account:")
-                    .font(.caption.bold())
-                    .frame(width: 110, alignment: .leading)
+            if let scan = datasetScan {
+                datasetScanView(scan: scan)
+            } else {
+                HStack {
+                    Text("Target Account:")
+                        .font(.caption.bold())
+                        .frame(width: 110, alignment: .leading)
 
-                Picker("", selection: $selectedTargetAccountId) {
-                    Text("Create New Account from File").tag("NEW")
-                    ForEach(store.accounts) { a in
-                        Text(a.name).tag(a.id)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-            }
-
-            if !importPreviewTxs.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("Preview (\(importPreviewTxs.count) Transactions):")
-                            .font(.caption.bold())
-                        Spacer()
-                        let total = importPreviewTxs.reduce(0.0) { $0 + $1.amount }
-                        Text(String(format: "Net Flow: $%.2f", total))
-                            .font(.caption.monospaced().bold())
-                            .foregroundColor(total >= 0 ? .green : .red)
-                    }
-
-                    List(importPreviewTxs.prefix(5)) { tx in
-                        HStack {
-                            Text(tx.dateString).font(.caption2.monospaced()).frame(width: 80, alignment: .leading)
-                            Text(tx.payee).font(.caption).lineLimit(1)
-                            Spacer()
-                            Text(String(format: "$%.2f", tx.amount))
-                                .font(.caption.monospaced().bold())
-                                .foregroundColor(tx.amount < 0 ? .red : .green)
+                    Picker("", selection: $selectedTargetAccountId) {
+                        Text("Create New Account from File").tag("NEW")
+                        ForEach(store.accounts) { a in
+                            Text(a.name).tag(a.id)
                         }
                     }
-                    .frame(height: 120)
+                    .frame(maxWidth: .infinity)
+                }
+
+                if !importPreviewTxs.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Preview (\(importPreviewTxs.count) Transactions):")
+                                .font(.caption.bold())
+                            Spacer()
+                            let total = importPreviewTxs.reduce(0.0) { $0 + $1.amount }
+                            Text(String(format: "Net Flow: $%.2f", total))
+                                .font(.caption.monospaced().bold())
+                                .foregroundColor(total >= 0 ? .green : .red)
+                        }
+
+                        List(importPreviewTxs.prefix(5)) { tx in
+                            HStack {
+                                Text(tx.dateString).font(.caption2.monospaced()).frame(width: 80, alignment: .leading)
+                                Text(tx.payee).font(.caption).lineLimit(1)
+                                Spacer()
+                                Text(String(format: "$%.2f", tx.amount))
+                                    .font(.caption.monospaced().bold())
+                                    .foregroundColor(tx.amount < 0 ? .red : .green)
+                            }
+                        }
+                        .frame(height: 120)
+                    }
                 }
             }
 
@@ -214,18 +220,104 @@ public struct ImportExportSheet: View {
         .padding(16)
     }
 
+    // MARK: - Dataset Scan Subview
+    @ViewBuilder
+    private func datasetScanView(scan: DatasetScanResult) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: scan.hasQIFs ? "folder.badge.gearshape" : "lock.doc.fill")
+                    .foregroundColor(Color(red: 0.0, green: 0.35, blue: 0.20))
+                Text("Quicken Dataset: \(scan.datasetName)")
+                    .font(.subheadline.bold())
+                Spacer()
+                if scan.hasQIFs {
+                    Text("\(scan.discoveredQifs.count) Accounts • \(scan.totalTransactions) Txs")
+                        .font(.caption.monospaced())
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            if scan.hasQIFs {
+                Text("Discovered companion QIF exports in dataset. Import all accounts:")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(scan.discoveredQifs) { item in
+                            HStack {
+                                Image(systemName: item.account.type.iconName)
+                                    .foregroundColor(Color(red: 0.0, green: 0.35, blue: 0.20))
+                                    .frame(width: 16)
+                                Text(item.name)
+                                    .font(.caption.bold())
+                                Spacer()
+                                Text("\(item.account.transactions.count) txs")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text(String(format: "$%.2f", item.account.balance))
+                                    .font(.caption.monospaced().bold())
+                            }
+                            .padding(.vertical, 3)
+                            .padding(.horizontal, 6)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(4)
+                        }
+                    }
+                }
+                .frame(maxHeight: 120)
+
+                Button(action: importAllDiscoveredAccounts) {
+                    Label("Import All \(scan.discoveredQifs.count) Accounts (\(scan.totalTransactions) Transactions)", systemImage: "tray.and.arrow.down.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.0, green: 0.35, blue: 0.20))
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Proprietary Quicken .QDF database with RC5-encrypted pages. Direct raw conversion to QIF:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if !scan.extractedAccountNames.isEmpty {
+                        Text("Discovered Accounts in .QSD: \(scan.extractedAccountNames.prefix(5).joined(separator: ", "))")
+                            .font(.caption.bold())
+
+                        Button("Create Discovered Accounts (\(scan.extractedAccountNames.count))") {
+                            createDiscoveredSkeletonAccounts()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("To Export QIF from QDF:")
+                            .font(.caption.bold())
+                        Text("1. Open '\(scan.datasetName).QDF' in Quicken (or Quicken 2013 via Wine).\n2. Select File > File Export > QIF File (All Accounts & Dates).\n3. Import the resulting .QIF file directly into Haste.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(6)
+                    .background(Color(NSColor.controlBackgroundColor))
+                    .cornerRadius(6)
+
+                    Button("Inspect Binary Structure in Data Format Inspector (⌥⌘D)") {
+                        openWindow(id: "data-inspector")
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .padding(8)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.4))
+        .cornerRadius(6)
+    }
+
     // MARK: - Import Operations
     private func browseImportFile() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [
-            UTType(filenameExtension: "qif") ?? .plainText,
-            UTType.commaSeparatedText,
-            UTType.plainText
-        ]
-        panel.prompt = "Select Financial File"
+        panel.prompt = "Select File or Folder"
         if panel.runModal() == .OK, let url = panel.url {
             importFilePath = url.path
             loadImportPreview(url: url)
@@ -233,7 +325,23 @@ public struct ImportExportSheet: View {
     }
 
     private func loadImportPreview(url: URL) {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return }
+
         let ext = url.pathExtension.lowercased()
+        if isDir.boolValue || ["qdf", "qsd", "qel"].contains(ext) {
+            let scan = DatasetScanner.scan(path: url.path)
+            self.datasetScan = scan
+            self.importPreviewTxs = []
+            if scan.hasQIFs {
+                self.importStatus = "Found Quicken dataset '\(scan.datasetName)' with \(scan.discoveredQifs.count) accounts (\(scan.totalTransactions) transactions)."
+            } else {
+                self.importStatus = "Detected Quicken dataset '\(scan.datasetName)'. See extraction options below."
+            }
+            return
+        }
+
+        self.datasetScan = nil
         do {
             let data = try Data(contentsOf: url)
             let content = String(data: data, encoding: .isoLatin1) ?? String(decoding: data, as: UTF8.self)
@@ -255,6 +363,43 @@ public struct ImportExportSheet: View {
         } catch {
             importStatus = "Error reading file: \(error.localizedDescription)"
         }
+    }
+
+    private func importAllDiscoveredAccounts() {
+        guard let scan = datasetScan, scan.hasQIFs else { return }
+
+        var totalImported = 0
+        for item in scan.discoveredQifs {
+            let acctName = item.account.name.isEmpty ? item.name : item.account.name
+            let targetAcctId: String
+            if let existing = store.accounts.first(where: { $0.name.caseInsensitiveCompare(acctName) == .orderedSame }) {
+                targetAcctId = existing.id
+            } else {
+                store.createAccount(name: acctName, type: item.account.type)
+                targetAcctId = store.selectedAccountId ?? ""
+            }
+
+            for tx in item.account.transactions {
+                store.addTransaction(to: targetAcctId, transaction: tx)
+                totalImported += 1
+            }
+        }
+
+        importStatus = "Successfully imported all \(scan.discoveredQifs.count) accounts (\(totalImported) transactions)!"
+        datasetScan = nil
+        importFilePath = ""
+    }
+
+    private func createDiscoveredSkeletonAccounts() {
+        guard let scan = datasetScan else { return }
+        var count = 0
+        for name in scan.extractedAccountNames {
+            if !store.accounts.contains(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) {
+                store.createAccount(name: name, type: .bank)
+                count += 1
+            }
+        }
+        importStatus = "Created \(count) account registers from \(scan.datasetName)."
     }
 
     private func handleImportButton() {

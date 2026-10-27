@@ -34,6 +34,7 @@ SOURCES=(
     native/Sources/Services/QIFParser.swift
     native/Sources/Services/CSVParser.swift
     native/Sources/Services/QDFInspector.swift
+    native/Sources/Services/DatasetScanner.swift
     native/Sources/Services/DataStore.swift
     native/Sources/Services/SparkleManager.swift
     native/Sources/Views/HeaderBannerView.swift
