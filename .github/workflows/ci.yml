@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: swift:6.0-jammy
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compile and Run Unit Tests
+        run: |
+          mkdir -p .build
+          swiftc -O \
+            native/Sources/Models/AppSettings.swift \
+            native/Sources/Models/Transaction.swift \
+            native/Sources/Models/Account.swift \
+            native/Sources/Models/QDFFile.swift \
+            native/Sources/Models/ScheduledBill.swift \
+            native/Sources/Models/BudgetCategory.swift \
+            native/Sources/Models/FinancialCalculator.swift \
+            native/Sources/Services/NumberToWords.swift \
+            native/Sources/Services/QIFParser.swift \
+            native/Sources/Services/CSVParser.swift \
+            native/Sources/Services/QDFInspector.swift \
+            native/Tests/HasteTests.swift \
+            native/Tests/main.swift \
+            -o .build/haste_tests
+          .build/haste_tests

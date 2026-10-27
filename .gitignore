@@ -1,0 +1,28 @@
+# Original Quicken CD-ROM & historical binary assets (never committed)
+aol/
+AUTORUN/
+AUTORUN.INF
+cabs/
+canmff/
+CUSTOM/
+dao/
+DISK*/
+extracted/
+FLOPPIES.BAT
+ie/
+INSTALL.EXE
+media/
+tools/
+ci_scripts/
+
+# Build and local execution artifacts
+.build/
+*.o
+*.dylib
+*.log
+*.zip
+.DS_Store
+Quicken2000.app/
+Cutewkay.app/
+Haste.app/
+native/Resources/icon_1024.png
