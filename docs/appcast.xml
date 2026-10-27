@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Haste Updates</title>
+    <link>https://github.com/binoio/haste</link>
+    <description>Most recent updates for Haste for Apple Silicon.</description>
+    <language>en</language>
+    <item>
+      <title>Haste 1.0.2</title>
+      <pubDate>Mon, 26 Oct 2026 22:15:00 -0400</pubDate>
+      <sparkle:version>3</sparkle:version>
+      <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.2 Update</h2>
+        <ul>
+          <li>Added Quicken Dataset & QDF Import Assistant: automatically detects companion QIF exports, account string tables in .QSD, and provides one-click batch import.</li>
+          <li>Interactive QDF to QIF conversion guidance and skeleton account generator.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.2/Haste.zip"
+                 sparkle:version="3"
+                 sparkle:shortVersionString="1.0.2"
+                 type="application/octet-stream" />
+    </item>
+    <item>
+      <title>Haste 1.0.1</title>
+      <pubDate>Mon, 26 Oct 2026 21:45:00 -0400</pubDate>
+      <sparkle:version>2</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.1 Update</h2>
+        <ul>
+          <li>Standard macOS app data location (~/Library/Application Support/Haste), opening empty when no data exists.</li>
+          <li>Refreshed app icon: gold coin on an emerald green field with stamped H monogram.</li>
+          <li>Unified top-level View menu combining all navigation and view options.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.1/Haste.zip"
+                 sparkle:version="2"
+                 sparkle:shortVersionString="1.0.1"
+                 type="application/octet-stream" />
+    </item>
+    <item>
+      <title>Haste 1.0.0</title>
+      <pubDate>Mon, 26 Oct 2026 21:00:00 -0400</pubDate>
+      <sparkle:version>1</sparkle:version>
+      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.0 Initial Release</h2>
+        <ul>
+          <li>Native Apple Silicon implementation and historical data format suite.</li>
+          <li>Full checkbook register, account reconciliation, planning & budgets, and check writing.</li>
+          <li>Integrated Sparkle automatic updates.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.0/Haste.zip"
+                 sparkle:version="1"
+                 sparkle:shortVersionString="1.0.0"
+                 type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haste - Personal Finance for Apple Silicon</title>
+    <meta name="description" content="Native Apple Silicon personal finance app. Classic checkbook registers, bank account reconciliation, budgets, check writing, and historical dataset preservation.">
+    <link rel="icon" type="image/png" href="icon.png">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --fg: #1d1d1f;
+            --secondary: #86868b;
+            --accent: #1b4d3e;
+            --accent-soft: #276854;
+            --accent-light: #e8f3ef;
+            --card-bg: #f5f5f7;
+            --border: #d2d2d7;
+            --radius: 16px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0c0a08;
+                --fg: #f5f5f7;
+                --secondary: #a0a0a5;
+                --accent: #2e8b6e;
+                --accent-soft: #38a382;
+                --accent-light: rgba(46, 139, 110, 0.15);
+                --card-bg: #181512;
+                --border: #2e261e;
+            }
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--fg);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        nav {
+            padding: 24px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .back-link {
+            text-decoration: none;
+            color: var(--secondary);
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: color 0.15s ease;
+        }
+
+        .back-link:hover {
+            color: var(--fg);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .logo img {
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: block;
+        }
+
+        header {
+            text-align: center;
+            padding: 70px 0 50px;
+        }
+
+        .app-icon {
+            width: 128px;
+            height: 128px;
+            margin: 0 auto 28px;
+            display: block;
+            border-radius: 28px;
+            box-shadow: 0 16px 36px -12px rgba(27, 77, 62, 0.45);
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 6vw, 3.75rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin: 0 0 16px;
+        }
+
+        .subtitle {
+            font-size: clamp(1.1rem, 2.5vw, 1.35rem);
+            color: var(--secondary);
+            max-width: 660px;
+            margin: 0 auto 32px;
+            line-height: 1.5;
+        }
+
+        .cta-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background-color: var(--accent);
+            color: #fff;
+            padding: 14px 32px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            text-decoration: none;
+            transition: transform 0.2s, opacity 0.2s, box-shadow 0.2s;
+            box-shadow: 0 6px 18px rgba(27, 77, 62, 0.35);
+        }
+
+        .cta:hover {
+            opacity: 0.92;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(27, 77, 62, 0.45);
+        }
+
+        .meta-badge {
+            font-size: 0.88rem;
+            color: var(--secondary);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .meta-badge span::after {
+            content: "•";
+            margin-left: 8px;
+        }
+        .meta-badge span:last-child::after {
+            content: "";
+            margin-left: 0;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            margin: 60px 0;
+        }
+
+        .feature-card {
+            background-color: var(--card-bg);
+            padding: 28px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin: 0;
+            letter-spacing: -0.01em;
+            color: var(--fg);
+        }
+
+        .feature-card p {
+            color: var(--secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .specs {
+            background-color: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 32px;
+            margin: 40px 0;
+            border: 1px solid var(--border);
+        }
+
+        .specs h2 {
+            font-size: 1.35rem;
+            margin-top: 0;
+            margin-bottom: 20px;
+            letter-spacing: -0.015em;
+        }
+
+        .specs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .spec-item label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .spec-item span {
+            font-weight: 600;
+            font-size: 0.98rem;
+        }
+
+        .disclaimer-box {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            padding: 20px 24px;
+            border-radius: 8px;
+            margin: 40px 0;
+            font-size: 0.88rem;
+            color: var(--secondary);
+            line-height: 1.55;
+        }
+
+        .disclaimer-box strong {
+            color: var(--fg);
+        }
+
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: var(--secondary);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+            margin-top: 60px;
+        }
+
+        footer p {
+            margin: 6px 0;
+        }
+
+        footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <a href="https://bino.io" class="back-link">&larr; Bino.io Apps</a>
+            <a href="#" class="logo">
+                <img src="icon.png" alt="Haste Icon">
+                Haste
+            </a>
+        </nav>
+
+        <header>
+            <img src="icon.png" alt="Haste App Icon" class="app-icon">
+            <h1>Haste</h1>
+            <p class="subtitle">Personal finance suite built natively for Apple Silicon. Authentic checkbook registers, bank reconciliation, budgets, check writing, and historical dataset preservation.</p>
+            <div class="cta-group">
+                <a href="https://github.com/binoio/haste/releases/latest" class="cta">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download for macOS
+                </a>
+                <div class="meta-badge">
+                    <span>Version 1.0.2</span>
+                    <span>Apple Silicon Native (arm64)</span>
+                    <span>macOS Monterey 12.0+</span>
+                    <span>Free &amp; Open Source</span>
+                </div>
+            </div>
+        </header>
+
+        <section class="features">
+            <div class="feature-card">
+                <h3>Authentic Checkbook Register</h3>
+                <p>Classic dual-line and green-bar ledger styling, inline transaction entry, instant running balance calculation, cleared status toggling, and split transaction support.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Bank Account Reconciliation</h3>
+                <p>Faithful reconciliation workflow matching your bank statement balances against cleared checks and deposits, complete with live difference calculations and automatic adjustments.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Classic "Write Checks" Window</h3>
+                <p>Familiar paper check interface with automatic English spelled-out dollar amount translation, payee address formatting, category splits, and instant posting to the register.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Planning &amp; Budgets</h3>
+                <p>Monthly category budget targets vs. actual spending with color-coded comparison progress bars, plus interactive loan, mortgage, and savings goal calculators.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Scheduled Bills &amp; Reminders</h3>
+                <p>Calendar due-date tracking, recurring frequencies (monthly, biweekly, quarterly, annually), and one-click "Record in Register" actions.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Historical Dataset &amp; QDF Inspector</h3>
+                <p>Real-time binary inspection of classic <code>.QDF</code>, <code>.QSD</code>, and <code>.QEL</code> datasets, automatic companion QIF detection, and skeleton account import.</p>
+            </div>
+            <div class="feature-card">
+                <h3>100% Offline &amp; Private</h3>
+                <p>Your financial data stays entirely on your Mac in <code>~/Library/Application Support/Haste</code>. Zero cloud trackers, zero analytics, and zero subscription fees.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Sparkle Auto-Updates</h3>
+                <p>Integrated, cryptographic update mechanism via Sparkle framework with signed release archives and transparent release notes.</p>
+            </div>
+        </section>
+
+        <section class="specs">
+            <h2>Specifications</h2>
+            <div class="specs-grid">
+                <div class="spec-item">
+                    <label>Architecture</label>
+                    <span>Apple Silicon (arm64)</span>
+                </div>
+                <div class="spec-item">
+                    <label>Requirements</label>
+                    <span>macOS 12.0 Monterey or later</span>
+                </div>
+                <div class="spec-item">
+                    <label>Data Formats</label>
+                    <span>QDF, QSD, QEL, QIF, CSV</span>
+                </div>
+                <div class="spec-item">
+                    <label>Auto-Update Feed</label>
+                    <span><a href="appcast.xml" style="color:var(--accent);">Sparkle AppCast Feed</a></span>
+                </div>
+            </div>
+        </section>
+
+        <aside class="disclaimer-box" aria-label="Disclaimer">
+            <p><strong>Notice &amp; Disclaimer:</strong> Haste is an independent open-source software project created strictly for historical software preservation, reverse engineering, and computer science research. Haste is not affiliated with, sponsored by, or endorsed by Intuit Inc. or Quicken Inc. All trademarks belong to their respective owners and are referenced solely for descriptive, historical, and nominative fair use.</p>
+        </aside>
+
+        <footer>
+            <p>&copy; 2026 Michael Bino &middot; <a href="https://bino.io">bino.io</a></p>
+            <p><a href="https://github.com/binoio/haste">View Source on GitHub</a> &middot; <a href="https://github.com/binoio/haste/releases">All Releases</a> &middot; <a href="appcast.xml">AppCast (XML)</a></p>
+        </footer>
+    </div>
+</body>
+</html>
