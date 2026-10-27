@@ -78,12 +78,20 @@ public struct ImportExportSheet: View {
                 Spacer()
 
                 if mode == .importData {
-                    Button(action: handleImportButton) {
-                        Label("Import \(importPreviewTxs.count) Transactions", systemImage: "arrow.down.doc.fill")
+                    if let scan = datasetScan, scan.hasAccounts {
+                        Button(action: importAllDiscoveredAccounts) {
+                            Label("Import All \(scan.discoveredAccounts.count) Accounts", systemImage: "tray.and.arrow.down.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.0, green: 0.35, blue: 0.20))
+                    } else {
+                        Button(action: handleImportButton) {
+                            Label("Import \(importPreviewTxs.count) Transactions", systemImage: "arrow.down.doc.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(red: 0.0, green: 0.35, blue: 0.20))
+                        .disabled(importPreviewTxs.isEmpty)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(red: 0.0, green: 0.35, blue: 0.20))
-                    .disabled(importPreviewTxs.isEmpty)
                 } else {
                     Button(action: executeExport) {
                         Label("Save Export File...", systemImage: "arrow.up.doc.fill")
@@ -225,32 +233,37 @@ public struct ImportExportSheet: View {
     private func datasetScanView(scan: DatasetScanResult) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Image(systemName: scan.hasQIFs ? "folder.badge.gearshape" : "lock.doc.fill")
+                Image(systemName: scan.hasAccounts ? "folder.badge.gearshape" : "lock.doc.fill")
                     .foregroundColor(Color(red: 0.0, green: 0.35, blue: 0.20))
                 Text("Quicken Dataset: \(scan.datasetName)")
                     .font(.subheadline.bold())
                 Spacer()
-                if scan.hasQIFs {
-                    Text("\(scan.discoveredQifs.count) Accounts • \(scan.totalTransactions) Txs")
+                if scan.hasAccounts {
+                    Text("\(scan.discoveredAccounts.count) Accounts • \(scan.totalTransactions) Txs")
                         .font(.caption.monospaced())
                         .foregroundColor(.secondary)
                 }
             }
 
-            if scan.hasQIFs {
-                Text("Discovered companion QIF exports in dataset. Import all accounts:")
+            if scan.hasAccounts {
+                Text("Discovered accounts across financial eras (1998–2007). Import accounts:")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
                 ScrollView {
                     VStack(spacing: 4) {
-                        ForEach(scan.discoveredQifs) { item in
+                        ForEach(scan.discoveredAccounts) { item in
                             HStack {
                                 Image(systemName: item.account.type.iconName)
                                     .foregroundColor(Color(red: 0.0, green: 0.35, blue: 0.20))
                                     .frame(width: 16)
-                                Text(item.name)
-                                    .font(.caption.bold())
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.name)
+                                        .font(.caption.bold())
+                                    Text("\(item.era) • \(item.sourceType)")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.secondary)
+                                }
                                 Spacer()
                                 Text("\(item.account.transactions.count) txs")
                                     .font(.caption2)
@@ -268,7 +281,7 @@ public struct ImportExportSheet: View {
                 .frame(maxHeight: 120)
 
                 Button(action: importAllDiscoveredAccounts) {
-                    Label("Import All \(scan.discoveredQifs.count) Accounts (\(scan.totalTransactions) Transactions)", systemImage: "tray.and.arrow.down.fill")
+                    Label("Import All \(scan.discoveredAccounts.count) Accounts (\(scan.totalTransactions) Transactions)", systemImage: "tray.and.arrow.down.fill")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.0, green: 0.35, blue: 0.20))
@@ -329,16 +342,37 @@ public struct ImportExportSheet: View {
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) else { return }
 
         let ext = url.pathExtension.lowercased()
-        if isDir.boolValue || ["qdf", "qsd", "qel"].contains(ext) {
+        if isDir.boolValue || ["qdf", "qsd", "qel", "quickendata"].contains(ext) {
             let scan = DatasetScanner.scan(path: url.path)
             self.datasetScan = scan
             self.importPreviewTxs = []
-            if scan.hasQIFs {
-                self.importStatus = "Found Quicken dataset '\(scan.datasetName)' with \(scan.discoveredQifs.count) accounts (\(scan.totalTransactions) transactions)."
+            if scan.hasAccounts {
+                self.importStatus = "Found Quicken dataset '\(scan.datasetName)' with \(scan.discoveredAccounts.count) accounts (\(scan.totalTransactions) transactions)."
             } else {
                 self.importStatus = "Detected Quicken dataset '\(scan.datasetName)'. See extraction options below."
             }
             return
+        }
+
+        if ext == "ofx" || ext == "qfx" {
+            if let ofxAccts = try? OFXParser.parseFile(at: url.path), !ofxAccts.isEmpty {
+                let total = ofxAccts.reduce(0) { $0 + $1.transactions.count }
+                let discovered = ofxAccts.map { a in
+                    DiscoveredAccountSource(sourceType: "OFX Statement", name: a.name, era: "2003–2007 (Mac Era)", fileURL: url, account: a)
+                }
+                self.datasetScan = DatasetScanResult(
+                    datasetName: url.deletingPathExtension().lastPathComponent,
+                    folderPath: url.deletingLastPathComponent().path,
+                    qdfMetadata: nil,
+                    qsdMetadata: nil,
+                    discoveredAccounts: discovered,
+                    extractedAccountNames: ofxAccts.map { $0.name },
+                    extractedCategories: []
+                )
+                self.importPreviewTxs = []
+                self.importStatus = "Found \(ofxAccts.count) account(s) with \(total) transactions in OFX file."
+                return
+            }
         }
 
         self.datasetScan = nil
@@ -366,10 +400,10 @@ public struct ImportExportSheet: View {
     }
 
     private func importAllDiscoveredAccounts() {
-        guard let scan = datasetScan, scan.hasQIFs else { return }
+        guard let scan = datasetScan, scan.hasAccounts else { return }
 
         var totalImported = 0
-        for item in scan.discoveredQifs {
+        for item in scan.discoveredAccounts {
             let acctName = item.account.name.isEmpty ? item.name : item.account.name
             let targetAcctId: String
             if let existing = store.accounts.first(where: { $0.name.caseInsensitiveCompare(acctName) == .orderedSame }) {
@@ -385,7 +419,7 @@ public struct ImportExportSheet: View {
             }
         }
 
-        importStatus = "Successfully imported all \(scan.discoveredQifs.count) accounts (\(totalImported) transactions)!"
+        importStatus = "Successfully imported all \(scan.discoveredAccounts.count) accounts (\(totalImported) transactions)!"
         datasetScan = nil
         importFilePath = ""
     }

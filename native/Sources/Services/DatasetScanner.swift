@@ -1,8 +1,10 @@
 import Foundation
 
-public struct DiscoveredAccountQIF: Identifiable {
-    public var id: String { fileURL.path }
+public struct DiscoveredAccountSource: Identifiable {
+    public var id: String { "\(sourceType)_\(fileURL.path)_\(name)" }
+    public let sourceType: String // "QIF Export" or "OFX Statement"
     public let name: String
+    public let era: String // "1998–2000 (Win32)", "2001–2002 (PC)", "2003–2007 (Mac OFX)"
     public let fileURL: URL
     public let account: Account
 }
@@ -12,16 +14,16 @@ public struct DatasetScanResult {
     public let folderPath: String
     public let qdfMetadata: QDFMetadata?
     public let qsdMetadata: QSDMetadata?
-    public let discoveredQifs: [DiscoveredAccountQIF]
+    public let discoveredAccounts: [DiscoveredAccountSource]
     public let extractedAccountNames: [String]
     public let extractedCategories: [String]
 
-    public var hasQIFs: Bool {
-        !discoveredQifs.isEmpty
+    public var hasAccounts: Bool {
+        !discoveredAccounts.isEmpty
     }
 
     public var totalTransactions: Int {
-        discoveredQifs.reduce(0) { $0 + $1.account.transactions.count }
+        discoveredAccounts.reduce(0) { $0 + $1.account.transactions.count }
     }
 }
 
@@ -35,7 +37,7 @@ public final class DatasetScanner {
                 folderPath: path,
                 qdfMetadata: nil,
                 qsdMetadata: nil,
-                discoveredQifs: [],
+                discoveredAccounts: [],
                 extractedAccountNames: [],
                 extractedCategories: []
             )
@@ -69,14 +71,48 @@ public final class DatasetScanner {
             }
         }
 
-        // Recursively look for QIF files up to 3 levels deep
-        var qifAccounts: [DiscoveredAccountQIF] = []
+        var discovered: [DiscoveredAccountSource] = []
+
+        // 1. Recursively look for QIF files up to 4 levels deep
         if let enumerator = fm.enumerator(at: folderURL, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
             for case let fileURL as URL in enumerator {
                 if fileURL.pathExtension.lowercased() == "qif" {
                     if let acct = try? QIFParser.parseFile(at: fileURL.path) {
                         let name = acct.name.isEmpty ? fileURL.deletingPathExtension().lastPathComponent : acct.name
-                        qifAccounts.append(DiscoveredAccountQIF(name: name, fileURL: fileURL, account: acct))
+                        let latestYear: Int = {
+                            guard let latest = acct.transactions.last?.date else { return 1999 }
+                            return Calendar.current.component(.year, from: latest)
+                        }()
+                        let era: String = (latestYear >= 2001) ? "2001–2002 (PC Era)" : "1998–2000 (Win32 Era)"
+                        discovered.append(DiscoveredAccountSource(
+                            sourceType: "QIF Export",
+                            name: name,
+                            era: era,
+                            fileURL: fileURL,
+                            account: acct
+                        ))
+                    }
+                }
+            }
+        }
+
+        // 2. Recursively look for OFX / QFX files and Quicken Mac OFX logs
+        if let enumerator = fm.enumerator(at: folderURL, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
+            for case let fileURL as URL in enumerator {
+                let ext = fileURL.pathExtension.lowercased()
+                let fileName = fileURL.lastPathComponent.lowercased()
+                let isOfxCandidate = (ext == "ofx" || ext == "qfx" || (ext == "txt" && (fileName.contains("ofxlog") || fileName.contains("ofxold"))))
+                if isOfxCandidate {
+                    if let ofxAccts = try? OFXParser.parseFile(at: fileURL.path), !ofxAccts.isEmpty {
+                        for a in ofxAccts {
+                            discovered.append(DiscoveredAccountSource(
+                                sourceType: "OFX Statement",
+                                name: a.name,
+                                era: "2003–2007 (Mac Era)",
+                                fileURL: fileURL,
+                                account: a
+                            ))
+                        }
                     }
                 }
             }
@@ -86,9 +122,9 @@ public final class DatasetScanner {
         var accountNames = foundQSD?.recognizedAccounts ?? []
         let categories = foundQSD?.categories ?? []
 
-        // If no QSD accounts found, populate from discovered QIFs
+        // If no QSD accounts found, populate from discovered accounts
         if accountNames.isEmpty {
-            accountNames = qifAccounts.map { $0.name }
+            accountNames = discovered.map { $0.name }
         }
 
         return DatasetScanResult(
@@ -96,7 +132,10 @@ public final class DatasetScanner {
             folderPath: folderURL.path,
             qdfMetadata: foundQDF,
             qsdMetadata: foundQSD,
-            discoveredQifs: qifAccounts.sorted { $0.name < $1.name },
+            discoveredAccounts: discovered.sorted {
+                if $0.era != $1.era { return $0.era < $1.era }
+                return $0.name < $1.name
+            },
             extractedAccountNames: accountNames,
             extractedCategories: categories
         )

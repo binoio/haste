@@ -184,14 +184,34 @@ public struct TestRunner {
             }
         }
 
-        // Test 14: DatasetScanner
+        // Test 14: DatasetScanner Multi-Era
         let quickenDataPath = home.appendingPathComponent("Downloads/Quicken Data").path
         if FileManager.default.fileExists(atPath: quickenDataPath) {
             let scan = DatasetScanner.scan(path: quickenDataPath)
-            assert(scan.hasQIFs, "DatasetScanner detected companion QIF accounts")
-            assert(scan.discoveredQifs.count >= 6, "DatasetScanner found at least 6 accounts (got \(scan.discoveredQifs.count))")
+            assert(scan.hasAccounts, "DatasetScanner detected accounts across financial eras")
+            assert(scan.discoveredAccounts.count >= 6, "DatasetScanner found at least 6 accounts (got \(scan.discoveredAccounts.count))")
             assert(scan.totalTransactions > 100, "DatasetScanner counted > 100 total transactions (got \(scan.totalTransactions))")
+
+            let hasPC0102 = scan.discoveredAccounts.contains { $0.era.contains("2001–2002") }
+            assert(hasPC0102, "DatasetScanner discovered 2001–2002 PC Era accounts")
+            let hasMacOFX = scan.discoveredAccounts.contains { $0.era.contains("2003–2007") }
+            assert(hasMacOFX, "DatasetScanner discovered 2003–2007 Mac Era accounts")
         }
+
+        // Test 15: OFXParser
+        let sampleOFX = """
+        <OFX><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS>
+        <CCACCTFROM><ACCTID>1234567890</CCACCTFROM>
+        <BANKTRANLIST>
+        <STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20040515120000<TRNAMT>-45.50<FITID>TEST001<NAME>Test Merchant</STMTTRN>
+        <STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20040520120000<TRNAMT>150.00<FITID>TEST002<NAME>Payment Received</STMTTRN>
+        </BANKTRANLIST>
+        </CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>
+        """
+        let parsedOfx = OFXParser.parse(content: sampleOFX, defaultName: "Test Card")
+        assert(parsedOfx.count == 1, "OFX parsed 1 account (got \(parsedOfx.count))")
+        assert(parsedOfx.first?.transactions.count == 2, "OFX parsed 2 transactions (got \(parsedOfx.first?.transactions.count ?? 0))")
+        assert(abs((parsedOfx.first?.balance ?? 0) - 104.50) < 0.01, "OFX calculated correct balance $104.50 (got \(parsedOfx.first?.balance ?? 0))")
 
         print("\nSummary: \(passed) passed, \(failed) failed.")
         return failed == 0

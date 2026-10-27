@@ -6,6 +6,25 @@
     <description>Most recent updates for Haste for Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>Haste 1.0.3</title>
+      <pubDate>Tue, 27 Oct 2026 18:55:00 -0400</pubDate>
+      <sparkle:version>4</sparkle:version>
+      <sparkle:shortVersionString>1.0.3</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.3 Update</h2>
+        <ul>
+          <li>Added native OFX &amp; QFX parser with support for Quicken for Mac OS X bundles and statement logs (2003–2007 era).</li>
+          <li>Added multi-era dataset discovery in DatasetScanner (1998–2000 Win32, 2001–2002 PC, and 2003–2007 Mac OFX).</li>
+          <li>Multi-account batch import across all discovered financial eras.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.3/Haste.zip"
+                 sparkle:version="4"
+                 sparkle:shortVersionString="1.0.3"
+                 type="application/octet-stream" />
+    </item>
+    <item>
       <title>Haste 1.0.2</title>
       <pubDate>Mon, 26 Oct 2026 22:15:00 -0400</pubDate>
       <sparkle:version>3</sparkle:version>
@@ -14,7 +33,7 @@
       <description><![CDATA[
         <h2>Haste 1.0.2 Update</h2>
         <ul>
-          <li>Added Quicken Dataset & QDF Import Assistant: automatically detects companion QIF exports, account string tables in .QSD, and provides one-click batch import.</li>
+          <li>Added Quicken Dataset &amp; QDF Import Assistant: automatically detects companion QIF exports, account string tables in .QSD, and provides one-click batch import.</li>
           <li>Interactive QDF to QIF conversion guidance and skeleton account generator.</li>
         </ul>
       ]]></description>
@@ -52,7 +71,7 @@
         <h2>Haste 1.0.0 Initial Release</h2>
         <ul>
           <li>Native Apple Silicon implementation and historical data format suite.</li>
-          <li>Full checkbook register, account reconciliation, planning & budgets, and check writing.</li>
+          <li>Full checkbook register, account reconciliation, planning &amp; budgets, and check writing.</li>
           <li>Integrated Sparkle automatic updates.</li>
         </ul>
       ]]></description>
