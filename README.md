@@ -1,6 +1,6 @@
 # Haste for Apple Silicon
 
-Native macOS (Apple Silicon arm64) personal finance application and data suite.
+A personal finance suite for the sole purpose of recovery and viewing data from popular Deluxe finance software circa 2000.
 
 ---
 
