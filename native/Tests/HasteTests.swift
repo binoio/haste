@@ -286,6 +286,22 @@ public struct TestRunner {
         assert(testStore.accounts.first?.transactions.count == 3, "Account E has 3 total transactions")
         assert(abs((testStore.accounts.first?.balance ?? 0) - 950.00) < 0.01, "Account E balance is $950.00 (got \(testStore.accounts.first?.balance ?? 0))")
 
+        // Test 20: Account Rename and Referential Updates
+        let txRen = Transaction(accountName: "Old Checking", date: date1, payee: "Shop", amount: -15.00)
+        let acctRen = Account(id: "acct_ren", name: "Old Checking", type: .bank, balance: -15.00, transactions: [txRen])
+        testStore.accounts = [acctRen]
+        testStore.scheduledBills = [ScheduledBill(payee: "Internet Co", amount: 50.00, frequency: .monthly, nextDueDate: date1, accountName: "Old Checking")]
+
+        testStore.renameAccount(id: "acct_ren", newName: "Primary Checking")
+        assert(testStore.accounts.first?.name == "Primary Checking", "Account renamed to Primary Checking")
+        assert(testStore.accounts.first?.transactions.first?.accountName == "Primary Checking", "Transaction accountName updated to Primary Checking")
+        assert(testStore.scheduledBills.first?.accountName == "Primary Checking", "Scheduled bill accountName updated to Primary Checking")
+
+        // Test 21: Account Delete
+        testStore.deleteAccount(id: "acct_ren")
+        assert(testStore.accounts.isEmpty, "Account removed on delete")
+        assert(!testStore.multiSelectedAccountIds.contains("acct_ren"), "Deleted account removed from multi-selection")
+
         print("\nSummary: \(passed) passed, \(failed) failed.")
         return failed == 0
     }

@@ -122,6 +122,9 @@ public final class DataStore: ObservableObject {
                 self.scheduledBills = payload.scheduledBills
                 self.budgetCategories = payload.budgetCategories
                 self.selectedAccountId = payload.accounts.first?.id
+                if let firstId = self.selectedAccountId {
+                    self.multiSelectedAccountIds = [firstId]
+                }
                 return
             } catch {
                 print("Notice: could not decode standard data: \(error.localizedDescription)")
@@ -143,6 +146,9 @@ public final class DataStore: ObservableObject {
         if !loadedAccounts.isEmpty {
             self.accounts = loadedAccounts.sorted { $0.name < $1.name }
             self.selectedAccountId = self.accounts.first?.id
+            if let firstId = self.selectedAccountId {
+                self.multiSelectedAccountIds = [firstId]
+            }
         } else {
             // Open completely empty if there is no data
             self.accounts = []
@@ -291,7 +297,32 @@ public final class DataStore: ObservableObject {
         )
         accounts.append(newAcct)
         selectedAccountId = newAcct.id
+        multiSelectedAccountIds = [newAcct.id]
         activeQuickTab = "register"
+        saveStandardData()
+    }
+
+    public func renameAccount(id: String, newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        guard let idx = accounts.firstIndex(where: { $0.id == id }) else { return }
+        let oldName = accounts[idx].name
+        guard oldName != trimmed else { return }
+
+        accounts[idx].name = trimmed
+
+        // Update transactions under this account
+        for tIdx in 0..<accounts[idx].transactions.count {
+            accounts[idx].transactions[tIdx].accountName = trimmed
+        }
+
+        // Update any scheduled bills referencing old name
+        for bIdx in 0..<scheduledBills.count {
+            if scheduledBills[bIdx].accountName == oldName {
+                scheduledBills[bIdx].accountName = trimmed
+            }
+        }
+
         saveStandardData()
     }
 
@@ -300,6 +331,9 @@ public final class DataStore: ObservableObject {
         multiSelectedAccountIds.remove(id)
         if selectedAccountId == id {
             selectedAccountId = accounts.first?.id
+            if let first = selectedAccountId {
+                multiSelectedAccountIds = [first]
+            }
         }
         saveStandardData()
     }

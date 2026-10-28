@@ -137,6 +137,12 @@ public struct SidebarView: View {
                     store.activeQuickTab = "register"
                 }
 
+                Button("Rename…") {
+                    store.selectedAccountId = account.id
+                    store.multiSelectedAccountIds = [account.id]
+                    NotificationCenter.default.post(name: .openRenameAccountSheet, object: nil)
+                }
+
                 if store.accounts.count > 1 {
                     Button("Merge…") {
                         triggerMergeFromAccount(account)
@@ -146,7 +152,8 @@ public struct SidebarView: View {
                 Divider()
 
                 Button("Delete Account…", role: .destructive) {
-                    store.deleteAccount(id: account.id)
+                    store.multiSelectedAccountIds = [account.id]
+                    NotificationCenter.default.post(name: .requestDeleteAccount, object: nil)
                 }
             }
 

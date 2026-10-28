@@ -7,6 +7,8 @@ extension Notification.Name {
     public static let openImportSheet = Notification.Name("haste.openImportSheet")
     public static let openExportSheet = Notification.Name("haste.openExportSheet")
     public static let openMergeAccountsSheet = Notification.Name("haste.openMergeAccountsSheet")
+    public static let openRenameAccountSheet = Notification.Name("haste.openRenameAccountSheet")
+    public static let requestDeleteAccount = Notification.Name("haste.requestDeleteAccount")
     public static let reopenMainWindow = Notification.Name("haste.reopenMainWindow")
 }
 
@@ -52,11 +54,6 @@ struct HasteCommands: Commands {
                 }
             }
             .keyboardShortcut("n", modifiers: .command)
-
-            Button("New Account...") {
-                NotificationCenter.default.post(name: .openNewAccountSheet, object: nil)
-            }
-            .keyboardShortcut("n", modifiers: [.command, .shift])
         }
 
         CommandGroup(after: .importExport) {
@@ -125,12 +122,33 @@ struct HasteCommands: Commands {
             .keyboardShortcut("d", modifiers: [.command, .option])
         }
 
-        CommandMenu("Operations") {
+        CommandMenu("Accounts") {
+            Button("New Account…") {
+                NotificationCenter.default.post(name: .openNewAccountSheet, object: nil)
+            }
+            .keyboardShortcut("n", modifiers: [.command, .shift])
+
+            Divider()
+
+            Button("Rename…") {
+                NotificationCenter.default.post(name: .openRenameAccountSheet, object: nil)
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .disabled(store.multiSelectedAccountIds.count != 1)
+
+            Button("Delete…") {
+                NotificationCenter.default.post(name: .requestDeleteAccount, object: nil)
+            }
+            .keyboardShortcut(.delete, modifiers: .command)
+            .disabled(store.multiSelectedAccountIds.isEmpty)
+
+            Divider()
+
             Button("Merge…") {
                 NotificationCenter.default.post(name: .openMergeAccountsSheet, object: nil)
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
-            .disabled(store.accounts.count < 2)
+            .disabled(store.multiSelectedAccountIds.count < 2)
         }
     }
 }

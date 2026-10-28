@@ -53,6 +53,7 @@ SOURCES=(
     native/Sources/Views/SettingsView.swift
     native/Sources/Views/ImportExportSheet.swift
     native/Sources/Views/MergeAccountsSheet.swift
+    native/Sources/Views/RenameAccountSheet.swift
     native/Sources/Views/ContentView.swift
     native/Sources/App/HasteApp.swift
 )

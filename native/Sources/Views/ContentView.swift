@@ -6,6 +6,9 @@ public struct ContentView: View {
     @State private var showingNewAccountSheet: Bool = false
     @State private var showingImportExportSheet: Bool = false
     @State private var importExportMode: TransferMode = .importData
+    @State private var showingRenameSheet: Bool = false
+    @State private var accountToRenameId: String = ""
+    @State private var showingDeleteAlert: Bool = false
 
     public init(store: DataStore = DataStore()) {
         self.store = store
@@ -50,6 +53,17 @@ public struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openMergeAccountsSheet)) { _ in
             prepareAndShowMergeSheet()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openRenameAccountSheet)) { _ in
+            if let singleId = store.multiSelectedAccountIds.first, store.multiSelectedAccountIds.count == 1 {
+                accountToRenameId = singleId
+                showingRenameSheet = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .requestDeleteAccount)) { _ in
+            if !store.multiSelectedAccountIds.isEmpty {
+                showingDeleteAlert = true
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -113,6 +127,29 @@ public struct ContentView: View {
         }
         .sheet(isPresented: $store.isMergeSheetPresented) {
             MergeAccountsSheet(store: store, isPresented: $store.isMergeSheetPresented)
+        }
+        .sheet(isPresented: $showingRenameSheet) {
+            RenameAccountSheet(store: store, isPresented: $showingRenameSheet, accountId: accountToRenameId)
+        }
+        .alert(isPresented: $showingDeleteAlert) {
+            let ids = Array(store.multiSelectedAccountIds)
+            let count = ids.count
+            let targetName = store.accounts.first(where: { $0.id == ids.first })?.name ?? "Account"
+            let title = count == 1 ? "Delete \"\(targetName)\"?" : "Delete \(count) Accounts?"
+            let message = count == 1
+                ? "Are you sure you want to delete this account? All associated transactions will be permanently deleted."
+                : "Are you sure you want to delete these \(count) accounts? All associated transactions will be permanently deleted."
+            return Alert(
+                title: Text(title),
+                message: Text(message),
+                primaryButton: .destructive(Text("Delete")) {
+                    for id in ids {
+                        store.deleteAccount(id: id)
+                    }
+                    store.multiSelectedAccountIds.removeAll()
+                },
+                secondaryButton: .cancel()
+            )
         }
     }
 
