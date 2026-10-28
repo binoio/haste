@@ -6,6 +6,25 @@
     <description>Most recent updates for Haste for Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>Haste 1.0.4</title>
+      <pubDate>Tue, 27 Oct 2026 20:45:00 -0400</pubDate>
+      <sparkle:version>5</sparkle:version>
+      <sparkle:shortVersionString>1.0.4</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.4 Update</h2>
+        <ul>
+          <li>Automatic account deduplication on scan: merges duplicate accounts found across rotating backup directories and log archives.</li>
+          <li>Full transaction deduplication and balance reconciliation across multi-file datasets.</li>
+          <li>Session-aware OFX parser with accurate account type classification (Checking vs Savings) and bank attribution.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.4/Haste.zip"
+                 sparkle:version="5"
+                 sparkle:shortVersionString="1.0.4"
+                 type="application/octet-stream" />
+    </item>
+    <item>
       <title>Haste 1.0.3</title>
       <pubDate>Tue, 27 Oct 2026 18:55:00 -0400</pubDate>
       <sparkle:version>4</sparkle:version>

@@ -184,13 +184,17 @@ public struct TestRunner {
             }
         }
 
-        // Test 14: DatasetScanner Multi-Era
+        // Test 14: DatasetScanner Multi-Era & Deduplication
         let quickenDataPath = home.appendingPathComponent("Downloads/Quicken Data").path
         if FileManager.default.fileExists(atPath: quickenDataPath) {
             let scan = DatasetScanner.scan(path: quickenDataPath)
             assert(scan.hasAccounts, "DatasetScanner detected accounts across financial eras")
             assert(scan.discoveredAccounts.count >= 6, "DatasetScanner found at least 6 accounts (got \(scan.discoveredAccounts.count))")
             assert(scan.totalTransactions > 100, "DatasetScanner counted > 100 total transactions (got \(scan.totalTransactions))")
+
+            let acctNames = scan.discoveredAccounts.map { $0.name.lowercased() }
+            let uniqueCount = Set(acctNames).count
+            assert(acctNames.count == uniqueCount, "DatasetScanner discovered accounts are completely deduplicated (got \(acctNames.count) unique accounts, 0 duplicates)")
 
             let hasPC0102 = scan.discoveredAccounts.contains { $0.era.contains("2001–2002") }
             assert(hasPC0102, "DatasetScanner discovered 2001–2002 PC Era accounts")

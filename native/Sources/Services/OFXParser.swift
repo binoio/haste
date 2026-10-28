@@ -20,46 +20,30 @@ public final class OFXParser {
         return (Date(timeIntervalSince1970: 0), str)
     }
 
-    public static func parse(content: String, defaultName: String = "Online Account") -> [Account] {
-        var activeAcct = "Account"
-        var activeOrg = ""
-        var activeType: AccountType = .bank
-
-        func extractTag(_ tag: String, in str: String) -> String {
-            if let r = str.range(of: "<\(tag)>([^<\\r\\n]+)", options: .regularExpression) {
-                let matched = String(str[r])
-                return matched.replacingOccurrences(of: "<\(tag)>", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            return ""
+    private static func extractTag(_ tag: String, in str: String) -> String {
+        if let r = str.range(of: "(?i)<\(tag)>([^<\\r\\n]+)", options: .regularExpression) {
+            let matched = String(str[r])
+            return matched.replacingOccurrences(of: "<\(tag)>", with: "", options: .caseInsensitive).trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        return ""
+    }
 
-        struct AcctBucket {
-            var name: String
-            var type: AccountType
-            var txs: [Transaction]
-            var seenFitids: Set<String>
-        }
+    private struct AcctBucket {
+        var name: String
+        var type: AccountType
+        var txs: [Transaction]
+        var seenFitids: Set<String>
+    }
 
-        var buckets: [String: AcctBucket] = [:]
-
-        let chunks = content.components(separatedBy: "<STMTTRN>")
+    private static func parseTransactions(
+        in block: String,
+        into bucket: inout AcctBucket,
+        displayName: String,
+        isCreditCard: Bool
+    ) {
+        let chunks = block.components(separatedBy: "<STMTTRN>")
         for (idx, c) in chunks.enumerated() {
-            let org = extractTag("ORG", in: c)
-            if !org.isEmpty { activeOrg = org }
-
-            let acct = extractTag("ACCTID", in: c)
-            if !acct.isEmpty { activeAcct = acct }
-
-            if c.contains("<CCACCTFROM>") || c.contains("<CCSTMTRS>") {
-                activeType = .creditCard
-            } else if c.contains("<BANKACCTFROM>") || c.contains("<STMTRS>") {
-                activeType = .bank
-            }
-
-            if idx == 0 {
-                continue
-            }
-
+            if idx == 0 { continue }
             let dt = extractTag("DTPOSTED", in: c)
             let amtStr = extractTag("TRNAMT", in: c)
             let rawName = extractTag("NAME", in: c)
@@ -71,27 +55,11 @@ public final class OFXParser {
             let cleanAmt = amtStr.replacingOccurrences(of: ",", with: "")
             let amt = Double(cleanAmt) ?? 0.0
 
-            let suffix = activeAcct.count >= 4 ? String(activeAcct.suffix(4)) : activeAcct
-            let baseOrg = activeOrg.isEmpty ? defaultName : activeOrg
-            let bucketKey: String = "\(baseOrg)_\(suffix)"
-
-            let displayName: String = {
-                if activeType == .creditCard {
-                    return "\(baseOrg) (\(suffix))"
-                } else {
-                    return "\(baseOrg) Checking (\(suffix))"
-                }
-            }()
-
-            if buckets[bucketKey] == nil {
-                buckets[bucketKey] = AcctBucket(name: displayName, type: activeType, txs: [], seenFitids: [])
-            }
-
-            let dedupeKey = fitid.isEmpty ? "\(dt)_\(amt)_\(rawName)" : fitid
-            if buckets[bucketKey]!.seenFitids.contains(dedupeKey) {
+            let dedupeKey = fitid.isEmpty ? "\(dt)_\(amt)_\(rawName)_\(checkNum)" : fitid
+            if bucket.seenFitids.contains(dedupeKey) {
                 continue
             }
-            buckets[bucketKey]!.seenFitids.insert(dedupeKey)
+            bucket.seenFitids.insert(dedupeKey)
 
             let (parsedDate, dateStr) = parseDate(dt)
             let tx = Transaction(
@@ -101,14 +69,80 @@ public final class OFXParser {
                 checkNumber: checkNum,
                 payee: rawName.isEmpty ? "Electronic Transaction" : rawName,
                 memo: rawMemo,
-                category: activeType == .creditCard ? "Credit Card" : "",
+                category: isCreditCard ? "Credit Card" : "",
                 amount: amt,
                 clearedStatus: "R"
             )
-            buckets[bucketKey]!.txs.append(tx)
+            bucket.txs.append(tx)
+        }
+    }
+
+    public static func parse(content: String, defaultName: String = "Online Account") -> [Account] {
+        var buckets: [String: AcctBucket] = [:]
+
+        // If the file contains <OFX> tags, split session by session; otherwise treat as one session
+        let rawSessions = content.components(separatedBy: "<OFX>")
+        let sessions: [String] = rawSessions.count > 1 ? Array(rawSessions.dropFirst()) : [content]
+
+        for session in sessions {
+            let sessionOrg = extractTag("ORG", in: session)
+            let baseOrg = sessionOrg.isEmpty ? defaultName : sessionOrg
+
+            // 1. Process Bank Statements: <STMTRS>
+            let bankBlocks = session.components(separatedBy: "<STMTRS>")
+            if bankBlocks.count > 1 {
+                for block in bankBlocks.dropFirst() {
+                    let headerPart = block.components(separatedBy: "<STMTTRN>").first ?? block
+                    let acctId = extractTag("ACCTID", in: headerPart)
+                    let acctTypeRaw = extractTag("ACCTTYPE", in: headerPart).uppercased()
+                    let isSavings = (acctTypeRaw == "SAVINGS")
+                    let suffix = acctId.count >= 4 ? String(acctId.suffix(4)) : (acctId.isEmpty ? "Account" : acctId)
+                    let typeLabel = isSavings ? "Savings" : "Checking"
+                    let displayName = "\(baseOrg) \(typeLabel) (\(suffix))"
+                    let bucketKey = "\(baseOrg)_BANK_\(suffix)_\(typeLabel)"
+
+                    if buckets[bucketKey] == nil {
+                        buckets[bucketKey] = AcctBucket(name: displayName, type: .bank, txs: [], seenFitids: [])
+                    }
+                    parseTransactions(in: block, into: &buckets[bucketKey]!, displayName: displayName, isCreditCard: false)
+                }
+            }
+
+            // 2. Process Credit Card Statements: <CCSTMTRS>
+            let ccBlocks = session.components(separatedBy: "<CCSTMTRS>")
+            if ccBlocks.count > 1 {
+                for block in ccBlocks.dropFirst() {
+                    let headerPart = block.components(separatedBy: "<STMTTRN>").first ?? block
+                    let acctId = extractTag("ACCTID", in: headerPart)
+                    let suffix = acctId.count >= 4 ? String(acctId.suffix(4)) : (acctId.isEmpty ? "Card" : acctId)
+                    let displayName = "\(baseOrg) (\(suffix))"
+                    let bucketKey = "\(baseOrg)_CC_\(suffix)"
+
+                    if buckets[bucketKey] == nil {
+                        buckets[bucketKey] = AcctBucket(name: displayName, type: .creditCard, txs: [], seenFitids: [])
+                    }
+                    parseTransactions(in: block, into: &buckets[bucketKey]!, displayName: displayName, isCreditCard: true)
+                }
+            }
+
+            // 3. Fallback for flat or unnested OFX responses
+            if bankBlocks.count <= 1 && ccBlocks.count <= 1 && session.contains("<STMTTRN>") {
+                let isCC = session.contains("<CCACCTFROM>") || session.contains("<CCSTMTRQ>")
+                let acctId = extractTag("ACCTID", in: session)
+                let suffix = acctId.count >= 4 ? String(acctId.suffix(4)) : (acctId.isEmpty ? "Account" : acctId)
+                let typeLabel = isCC ? "" : " Checking"
+                let displayName = "\(baseOrg)\(typeLabel) (\(suffix))"
+                let bucketKey = "\(baseOrg)_\(isCC ? "CC" : "BANK")_\(suffix)"
+
+                if buckets[bucketKey] == nil {
+                    buckets[bucketKey] = AcctBucket(name: displayName, type: isCC ? .creditCard : .bank, txs: [], seenFitids: [])
+                }
+                parseTransactions(in: session, into: &buckets[bucketKey]!, displayName: displayName, isCreditCard: isCC)
+            }
         }
 
-        return buckets.values.map { b in
+        return buckets.values.compactMap { b in
+            guard !b.txs.isEmpty else { return nil }
             let sortedTxs = b.txs.sorted { $0.date < $1.date }
             var running = 0.0
             var finalTxs: [Transaction] = []

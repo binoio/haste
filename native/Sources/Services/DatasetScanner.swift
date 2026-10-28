@@ -1,10 +1,10 @@
 import Foundation
 
 public struct DiscoveredAccountSource: Identifiable {
-    public var id: String { "\(sourceType)_\(fileURL.path)_\(name)" }
+    public var id: String { "\(era)_\(name)" }
     public let sourceType: String // "QIF Export" or "OFX Statement"
     public let name: String
-    public let era: String // "1998–2000 (Win32)", "2001–2002 (PC)", "2003–2007 (Mac OFX)"
+    public let era: String // "1998–2000 (Win32 Era)", "2001–2002 (PC Era)", "2003–2007 (Mac Era)"
     public let fileURL: URL
     public let account: Account
 }
@@ -71,9 +71,9 @@ public final class DatasetScanner {
             }
         }
 
-        var discovered: [DiscoveredAccountSource] = []
+        var rawDiscovered: [DiscoveredAccountSource] = []
 
-        // 1. Recursively look for QIF files up to 4 levels deep
+        // 1. Recursively look for QIF files
         if let enumerator = fm.enumerator(at: folderURL, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles]) {
             for case let fileURL as URL in enumerator {
                 if fileURL.pathExtension.lowercased() == "qif" {
@@ -84,7 +84,7 @@ public final class DatasetScanner {
                             return Calendar.current.component(.year, from: latest)
                         }()
                         let era: String = (latestYear >= 2001) ? "2001–2002 (PC Era)" : "1998–2000 (Win32 Era)"
-                        discovered.append(DiscoveredAccountSource(
+                        rawDiscovered.append(DiscoveredAccountSource(
                             sourceType: "QIF Export",
                             name: name,
                             era: era,
@@ -105,7 +105,7 @@ public final class DatasetScanner {
                 if isOfxCandidate {
                     if let ofxAccts = try? OFXParser.parseFile(at: fileURL.path), !ofxAccts.isEmpty {
                         for a in ofxAccts {
-                            discovered.append(DiscoveredAccountSource(
+                            rawDiscovered.append(DiscoveredAccountSource(
                                 sourceType: "OFX Statement",
                                 name: a.name,
                                 era: "2003–2007 (Mac Era)",
@@ -118,13 +118,88 @@ public final class DatasetScanner {
             }
         }
 
+        // 3. Deduplicate discovered accounts on scan
+        struct MergedAccountAccumulator {
+            var name: String
+            var era: String
+            var baseSourceType: String
+            var fileURLs: [URL]
+            var accountType: AccountType
+            var seenTxKeys: Set<String>
+            var transactions: [Transaction]
+        }
+
+        var dedupMap: [String: MergedAccountAccumulator] = [:]
+
+        for item in rawDiscovered {
+            let key = item.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if dedupMap[key] == nil {
+                dedupMap[key] = MergedAccountAccumulator(
+                    name: item.name,
+                    era: item.era,
+                    baseSourceType: item.sourceType,
+                    fileURLs: [item.fileURL],
+                    accountType: item.account.type,
+                    seenTxKeys: [],
+                    transactions: []
+                )
+            } else {
+                if !dedupMap[key]!.fileURLs.contains(item.fileURL) {
+                    dedupMap[key]!.fileURLs.append(item.fileURL)
+                }
+            }
+
+            for tx in item.account.transactions {
+                let txKey = "\(tx.dateString)_\(String(format: "%.2f", tx.amount))_\(tx.payee.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())_\(tx.checkNumber)"
+                if !dedupMap[key]!.seenTxKeys.contains(txKey) {
+                    dedupMap[key]!.seenTxKeys.insert(txKey)
+                    dedupMap[key]!.transactions.append(tx)
+                }
+            }
+        }
+
+        // Convert merged entries back to DiscoveredAccountSource
+        var deduplicated: [DiscoveredAccountSource] = []
+        for (_, entry) in dedupMap {
+            let sortedTxs = entry.transactions.sorted { $0.date < $1.date }
+            var running = 0.0
+            var finalTxs: [Transaction] = []
+            for var t in sortedTxs {
+                running += t.amount
+                t.runningBalance = running
+                finalTxs.append(t)
+            }
+
+            let unifiedAccount = Account(
+                name: entry.name,
+                type: entry.accountType,
+                balance: running,
+                transactions: finalTxs
+            )
+
+            let finalSourceType: String = {
+                if entry.fileURLs.count > 1 {
+                    return "\(entry.baseSourceType) (Merged \(entry.fileURLs.count) files)"
+                }
+                return entry.baseSourceType
+            }()
+
+            deduplicated.append(DiscoveredAccountSource(
+                sourceType: finalSourceType,
+                name: entry.name,
+                era: entry.era,
+                fileURL: entry.fileURLs.first ?? folderURL,
+                account: unifiedAccount
+            ))
+        }
+
         // Extracted strings
         var accountNames = foundQSD?.recognizedAccounts ?? []
         let categories = foundQSD?.categories ?? []
 
         // If no QSD accounts found, populate from discovered accounts
         if accountNames.isEmpty {
-            accountNames = discovered.map { $0.name }
+            accountNames = deduplicated.map { $0.name }
         }
 
         return DatasetScanResult(
@@ -132,7 +207,7 @@ public final class DatasetScanner {
             folderPath: folderURL.path,
             qdfMetadata: foundQDF,
             qsdMetadata: foundQSD,
-            discoveredAccounts: discovered.sorted {
+            discoveredAccounts: deduplicated.sorted {
                 if $0.era != $1.era { return $0.era < $1.era }
                 return $0.name < $1.name
             },

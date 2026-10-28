@@ -413,13 +413,24 @@ public struct ImportExportSheet: View {
                 targetAcctId = store.selectedAccountId ?? ""
             }
 
-            for tx in item.account.transactions {
-                store.addTransaction(to: targetAcctId, transaction: tx)
-                totalImported += 1
+            guard let acctIdx = store.accounts.firstIndex(where: { $0.id == targetAcctId }) else { continue }
+            var existingKeys = Set<String>()
+            for t in store.accounts[acctIdx].transactions {
+                existingKeys.insert("\(t.dateString)_\(String(format: "%.2f", t.amount))_\(t.payee.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())_\(t.checkNumber)")
             }
+
+            for tx in item.account.transactions {
+                let txKey = "\(tx.dateString)_\(String(format: "%.2f", tx.amount))_\(tx.payee.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())_\(tx.checkNumber)"
+                if !existingKeys.contains(txKey) {
+                    existingKeys.insert(txKey)
+                    store.accounts[acctIdx].transactions.append(tx)
+                    totalImported += 1
+                }
+            }
+            store.recalculateBalances(for: targetAcctId)
         }
 
-        importStatus = "Successfully imported all \(scan.discoveredAccounts.count) accounts (\(totalImported) transactions)!"
+        importStatus = "Successfully imported all \(scan.discoveredAccounts.count) accounts (\(totalImported) unique transactions)!"
         datasetScan = nil
         importFilePath = ""
     }
