@@ -6,6 +6,7 @@ extension Notification.Name {
     public static let openNewAccountSheet = Notification.Name("haste.openNewAccountSheet")
     public static let openImportSheet = Notification.Name("haste.openImportSheet")
     public static let openExportSheet = Notification.Name("haste.openExportSheet")
+    public static let openMergeAccountsSheet = Notification.Name("haste.openMergeAccountsSheet")
     public static let reopenMainWindow = Notification.Name("haste.reopenMainWindow")
 }
 
@@ -122,6 +123,14 @@ struct HasteCommands: Commands {
                 openWindow(id: "data-inspector")
             }
             .keyboardShortcut("d", modifiers: [.command, .option])
+        }
+
+        CommandMenu("Operations") {
+            Button("Merge…") {
+                NotificationCenter.default.post(name: .openMergeAccountsSheet, object: nil)
+            }
+            .keyboardShortcut("m", modifiers: [.command, .shift])
+            .disabled(store.accounts.count < 2)
         }
     }
 }

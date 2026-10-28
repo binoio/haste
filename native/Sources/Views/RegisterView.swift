@@ -21,6 +21,17 @@ public struct RegisterView: View {
     @State private var showSplitSheet: Bool = false
     @State private var statusFeedback: String = ""
 
+    // Fixed Column Widths for Pixel-Perfect Register Alignment
+    private let colDateWidth: CGFloat = 80
+    private let colNumWidth: CGFloat = 48
+    private let colCategoryWidth: CGFloat = 160
+    private let colClrWidth: CGFloat = 28
+    private let colPaymentWidth: CGFloat = 84
+    private let colDepositWidth: CGFloat = 84
+    private let colBalanceWidth: CGFloat = 92
+    private let hPadding: CGFloat = 12
+    private let colSpacing: CGFloat = 8
+
     private var targetSplitAmount: Double {
         let pClean = entryPaymentString.replacingOccurrences(of: "$", with: "").replacingOccurrences(of: ",", with: "")
         if let p = Double(pClean), p > 0 { return p }
@@ -77,19 +88,19 @@ public struct RegisterView: View {
             Divider()
 
             // Classic Quicken Register Column Header
-            HStack(spacing: 6) {
-                Text("Date").frame(width: 74, alignment: .leading)
-                Text("Num").frame(width: 44, alignment: .leading)
-                Text("Payee / Memo").frame(minWidth: 120, alignment: .leading)
-                Text("Category / Transfer").frame(minWidth: 90, alignment: .leading)
-                Text("Clr").frame(width: 26, alignment: .center)
-                Text("Payment").frame(width: 74, alignment: .trailing)
-                Text("Deposit").frame(width: 74, alignment: .trailing)
-                Text("Balance").frame(width: 82, alignment: .trailing)
+            HStack(spacing: colSpacing) {
+                Text("Date").frame(width: colDateWidth, alignment: .leading)
+                Text("Num").frame(width: colNumWidth, alignment: .leading)
+                Text("Payee / Memo").frame(minWidth: 120, maxWidth: .infinity, alignment: .leading)
+                Text("Category / Transfer").frame(width: colCategoryWidth, alignment: .leading)
+                Text("Clr").frame(width: colClrWidth, alignment: .center)
+                Text("Payment").frame(width: colPaymentWidth, alignment: .trailing)
+                Text("Deposit").frame(width: colDepositWidth, alignment: .trailing)
+                Text("Balance").frame(width: colBalanceWidth, alignment: .trailing)
             }
             .font(.system(size: 11, weight: .bold))
             .foregroundColor(.secondary)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, hPadding)
             .padding(.vertical, 6)
             .background(Color(NSColor.controlBackgroundColor))
             Divider()
@@ -126,61 +137,64 @@ public struct RegisterView: View {
                             }()
 
                             VStack(spacing: 2) {
-                                // Line 1: Date | Num | Payee | Clr | Payment | Deposit | Balance
-                                HStack(spacing: 6) {
+                                // Line 1: Date | Num | Payee | Category | Clr | Payment | Deposit | Balance
+                                HStack(spacing: colSpacing) {
                                     Text(tx.dateString)
                                         .font(.system(size: 11, design: .monospaced))
-                                        .frame(width: 74, alignment: .leading)
+                                        .frame(width: colDateWidth, alignment: .leading)
 
                                     Text(tx.checkNumber)
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(.secondary)
-                                        .frame(width: 44, alignment: .leading)
+                                        .frame(width: colNumWidth, alignment: .leading)
 
                                     Text(tx.payee)
                                         .font(.system(size: 12, weight: .semibold))
                                         .lineLimit(1)
-                                        .frame(minWidth: 120, alignment: .leading)
+                                        .truncationMode(.tail)
+                                        .frame(minWidth: 120, maxWidth: .infinity, alignment: .leading)
 
                                     Text(tx.category)
                                         .font(.system(size: 11))
                                         .foregroundColor(.secondary)
                                         .lineLimit(1)
-                                        .frame(minWidth: 90, alignment: .leading)
+                                        .truncationMode(.tail)
+                                        .frame(width: colCategoryWidth, alignment: .leading)
 
                                     Button(action: { toggleClearedStatus(for: tx) }) {
                                         Text(tx.clearedStatus.isEmpty ? "·" : tx.clearedStatus)
                                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                                             .foregroundColor(tx.isReconciled ? .green : .blue)
-                                            .frame(width: 26, alignment: .center)
+                                            .frame(width: colClrWidth, alignment: .center)
                                     }
                                     .buttonStyle(.plain)
 
                                     Text(tx.isPayment ? String(format: "$%.2f", abs(tx.amount)) : "")
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(colorScheme == .dark ? Color(red: 1.0, green: 0.45, blue: 0.45) : Color(red: 0.85, green: 0.1, blue: 0.1))
-                                        .frame(width: 74, alignment: .trailing)
+                                        .frame(width: colPaymentWidth, alignment: .trailing)
 
                                     Text(tx.isDeposit ? String(format: "$%.2f", tx.amount) : "")
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(colorScheme == .dark ? Color(red: 0.45, green: 0.9, blue: 0.45) : Color(red: 0.0, green: 0.55, blue: 0.15))
-                                        .frame(width: 74, alignment: .trailing)
+                                        .frame(width: colDepositWidth, alignment: .trailing)
 
                                     Text(String(format: "$%.2f", tx.runningBalance))
                                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                                         .foregroundColor(tx.runningBalance < 0 ? (colorScheme == .dark ? Color(red: 1.0, green: 0.45, blue: 0.45) : .red) : .primary)
-                                        .frame(width: 82, alignment: .trailing)
+                                        .frame(width: colBalanceWidth, alignment: .trailing)
                                 }
 
                                 // Line 2: Memo & Splits info & quick action buttons
-                                HStack(spacing: 6) {
-                                    Spacer().frame(width: 124)
+                                HStack(spacing: colSpacing) {
+                                    Spacer().frame(width: colDateWidth + colNumWidth + colSpacing)
 
                                     if !tx.memo.isEmpty {
                                         Text("Memo: \(tx.memo)")
                                             .font(.system(size: 10))
                                             .foregroundColor(.secondary)
                                             .lineLimit(1)
+                                            .truncationMode(.tail)
                                     }
 
                                     if !tx.splits.isEmpty {
@@ -220,7 +234,7 @@ public struct RegisterView: View {
                                     VStack(alignment: .leading, spacing: 2) {
                                         ForEach(tx.splits) { split in
                                             HStack {
-                                                Spacer().frame(width: 150)
+                                                Spacer().frame(width: colDateWidth + colNumWidth + colSpacing + 16)
                                                 Text("↳ \(split.category)")
                                                     .font(.system(size: 10))
                                                 if !split.memo.isEmpty {
@@ -231,7 +245,7 @@ public struct RegisterView: View {
                                                 Spacer()
                                                 Text(String(format: "$%.2f", split.amount))
                                                     .font(.system(size: 10, design: .monospaced))
-                                                Spacer().frame(width: 100)
+                                                Spacer().frame(width: colBalanceWidth + colSpacing)
                                             }
                                         }
                                     }
@@ -239,7 +253,7 @@ public struct RegisterView: View {
                                     .background(colorScheme == .dark ? Color.yellow.opacity(0.14) : Color.yellow.opacity(0.08))
                                 }
                             }
-                            .padding(.horizontal, 12)
+                            .padding(.horizontal, hPadding)
                             .padding(.vertical, 5)
                             .background(rowBg)
                             .onTapGesture {
@@ -255,13 +269,13 @@ public struct RegisterView: View {
 
             // Authentic Quicken Register In-Place Entry Bar (Bottom)
             VStack(spacing: 6) {
-                HStack(spacing: 6) {
+                HStack(spacing: colSpacing) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Date").font(.system(size: 9, weight: .bold))
                         TextField("YYYY-MM-DD", text: $entryDateString)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11, design: .monospaced))
-                            .frame(width: 82)
+                            .frame(width: colDateWidth)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -269,7 +283,7 @@ public struct RegisterView: View {
                         TextField("Num", text: $entryNum)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11))
-                            .frame(width: 48)
+                            .frame(width: colNumWidth)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -277,6 +291,7 @@ public struct RegisterView: View {
                         TextField("Payee Name", text: $entryPayee)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11))
+                            .frame(minWidth: 120, maxWidth: .infinity)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -284,7 +299,7 @@ public struct RegisterView: View {
                         TextField("0.00", text: $entryPaymentString)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11, design: .monospaced))
-                            .frame(width: 76)
+                            .frame(width: colPaymentWidth)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -292,16 +307,18 @@ public struct RegisterView: View {
                         TextField("0.00", text: $entryDepositString)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11, design: .monospaced))
-                            .frame(width: 76)
+                            .frame(width: colDepositWidth)
                     }
                 }
+                .padding(.horizontal, hPadding)
 
-                HStack(spacing: 6) {
+                HStack(spacing: colSpacing) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Memo").font(.system(size: 9, weight: .bold))
                         TextField("Memo", text: $entryMemo)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11))
+                            .frame(minWidth: 120, maxWidth: .infinity)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -309,7 +326,7 @@ public struct RegisterView: View {
                         TextField("Category / Transfer", text: $entryCategory)
                             .textFieldStyle(.roundedBorder)
                             .font(.system(size: 11))
-                            .frame(width: 140)
+                            .frame(width: colCategoryWidth)
                     }
 
                     Button(action: { showSplitSheet = true }) {
@@ -337,6 +354,7 @@ public struct RegisterView: View {
                             .padding(.top, 14)
                     }
                 }
+                .padding(.horizontal, hPadding)
             }
             .padding(10)
             .background(colorScheme == .dark ? Color(red: 0.13, green: 0.17, blue: 0.14) : Color(red: 0.92, green: 0.95, blue: 0.92))

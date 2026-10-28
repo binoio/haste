@@ -99,6 +99,12 @@ public final class DataStore: ObservableObject {
     // Budgets
     @Published public var budgetCategories: [BudgetCategory] = []
 
+    // Multi-selection & Merge state
+    @Published public var multiSelectedAccountIds: Set<String> = []
+    @Published public var pendingMergeSourceIds: [String] = []
+    @Published public var pendingMergeTargetId: String? = nil
+    @Published public var isMergeSheetPresented: Bool = false
+
     public init() {
         loadedDirectoryPath = DataStore.standardDataDirectoryURL.path
         loadStandardData()
@@ -284,7 +290,6 @@ public final class DataStore: ObservableObject {
             transactions: txs
         )
         accounts.append(newAcct)
-        accounts.sort { $0.name < $1.name }
         selectedAccountId = newAcct.id
         activeQuickTab = "register"
         saveStandardData()
@@ -292,10 +297,110 @@ public final class DataStore: ObservableObject {
 
     public func deleteAccount(id: String) {
         accounts.removeAll { $0.id == id }
+        multiSelectedAccountIds.remove(id)
         if selectedAccountId == id {
             selectedAccountId = accounts.first?.id
         }
         saveStandardData()
+    }
+
+    // MARK: - Reordering & Merging Accounts
+
+    public func reorderAccount(fromIndex: Int, toIndex: Int) {
+        guard fromIndex >= 0, fromIndex < accounts.count else { return }
+        var dest = toIndex
+        if dest > fromIndex {
+            dest -= 1
+        }
+        guard dest >= 0, dest < accounts.count, dest != fromIndex else { return }
+        let moved = accounts.remove(at: fromIndex)
+        accounts.insert(moved, at: dest)
+        saveStandardData()
+    }
+
+    public func moveAccount(id: String, before targetId: String) {
+        guard let sourceIndex = accounts.firstIndex(where: { $0.id == id }),
+              let targetIndex = accounts.firstIndex(where: { $0.id == targetId }),
+              sourceIndex != targetIndex else { return }
+        let item = accounts.remove(at: sourceIndex)
+        let newTargetIndex = accounts.firstIndex(where: { $0.id == targetId }) ?? targetIndex
+        accounts.insert(item, at: newTargetIndex)
+        saveStandardData()
+    }
+
+    public func moveAccount(id: String, after targetId: String) {
+        guard let sourceIndex = accounts.firstIndex(where: { $0.id == id }),
+              let targetIndex = accounts.firstIndex(where: { $0.id == targetId }),
+              sourceIndex != targetIndex else { return }
+        let item = accounts.remove(at: sourceIndex)
+        let newTargetIndex = accounts.firstIndex(where: { $0.id == targetId }) ?? targetIndex
+        accounts.insert(item, at: min(newTargetIndex + 1, accounts.count))
+        saveStandardData()
+    }
+
+    @discardableResult
+    public func mergeAccounts(
+        sourceAccountIds: [String],
+        targetAccountId: String,
+        deduplicateTransactions: Bool = true
+    ) -> (importedCount: Int, skippedCount: Int) {
+        guard let targetIndex = accounts.firstIndex(where: { $0.id == targetAccountId }) else {
+            return (0, 0)
+        }
+        let targetName = accounts[targetIndex].name
+
+        var targetTransactions = accounts[targetIndex].transactions
+        var existingSignatureSet = Set<String>()
+        for tx in targetTransactions {
+            let sig = "\(tx.dateString)|\(String(format: "%.2f", tx.amount))|\(tx.payee.trimmingCharacters(in: .whitespaces).lowercased())"
+            existingSignatureSet.insert(sig)
+        }
+
+        var importedCount = 0
+        var skippedCount = 0
+        var removedSourceNames = [String]()
+
+        for sourceId in sourceAccountIds where sourceId != targetAccountId {
+            guard let sIdx = accounts.firstIndex(where: { $0.id == sourceId }) else { continue }
+            let sourceAccount = accounts[sIdx]
+            removedSourceNames.append(sourceAccount.name)
+
+            for var tx in sourceAccount.transactions {
+                let sig = "\(tx.dateString)|\(String(format: "%.2f", tx.amount))|\(tx.payee.trimmingCharacters(in: .whitespaces).lowercased())"
+                if deduplicateTransactions && existingSignatureSet.contains(sig) {
+                    skippedCount += 1
+                    continue
+                }
+                tx.accountName = targetName
+                targetTransactions.append(tx)
+                existingSignatureSet.insert(sig)
+                importedCount += 1
+            }
+        }
+
+        // Apply updated transactions to target
+        accounts[targetIndex].transactions = targetTransactions
+        recalculateBalances(for: targetAccountId)
+
+        // Remove source accounts
+        accounts.removeAll { acct in
+            sourceAccountIds.contains(acct.id) && acct.id != targetAccountId
+        }
+
+        // Update any scheduled bills referencing old account names
+        for i in 0..<scheduledBills.count {
+            if removedSourceNames.contains(scheduledBills[i].accountName) {
+                scheduledBills[i].accountName = targetName
+            }
+        }
+
+        // Reset multi-selection and select target account
+        multiSelectedAccountIds.removeAll()
+        selectedAccountId = targetAccountId
+        activeQuickTab = "register"
+
+        saveStandardData()
+        return (importedCount, skippedCount)
     }
 
     // MARK: - Reconcile Logic

@@ -1,7 +1,18 @@
 import SwiftUI
+import UniformTypeIdentifiers
+
+enum DropZone {
+    case above
+    case onTarget
+    case below
+}
 
 public struct SidebarView: View {
     @ObservedObject var store: DataStore
+
+    @State private var draggedAccountId: String? = nil
+    @State private var currentDropTargetId: String? = nil
+    @State private var currentDropZone: DropZone? = nil
 
     public var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -39,34 +50,7 @@ public struct SidebarView: View {
                     .padding(.bottom, 2)
 
                     ForEach(store.accounts) { account in
-                        let isSelected = store.selectedAccountId == account.id && store.activeQuickTab == "register"
-                        Button(action: {
-                            store.selectedAccountId = account.id
-                            store.activeQuickTab = "register"
-                        }) {
-                            HStack(spacing: 8) {
-                                Image(systemName: account.type.iconName)
-                                    .foregroundColor(account.type == .creditCard ? .orange : Color(red: 0.0, green: 0.35, blue: 0.20))
-                                    .frame(width: 18, alignment: .center)
-
-                                Text(account.name)
-                                    .font(.system(size: 12, weight: .medium))
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-
-                                Spacer(minLength: 4)
-
-                                Text(String(format: "$%.2f", account.balance))
-                                    .font(.system(size: 11, design: .monospaced))
-                                    .foregroundColor(account.balance < 0 ? .red : .secondary)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(isSelected ? Color.accentColor.opacity(0.18) : Color.clear)
-                            .cornerRadius(5)
-                        }
-                        .buttonStyle(.plain)
+                        accountRow(account: account)
                     }
                 }
             }
@@ -76,6 +60,146 @@ public struct SidebarView: View {
         .frame(width: 240)
         .fixedSize(horizontal: true, vertical: false)
         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+    }
+
+    @ViewBuilder
+    private func accountRow(account: Account) -> some View {
+        let isSelected = store.selectedAccountId == account.id && store.activeQuickTab == "register"
+        let isMultiSelected = store.multiSelectedAccountIds.contains(account.id)
+        let isTargeted = currentDropTargetId == account.id
+        let isDraggingThis = draggedAccountId == account.id
+
+        VStack(spacing: 0) {
+            // Drop indicator above
+            if isTargeted && currentDropZone == .above {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(height: 2)
+                    .padding(.horizontal, 4)
+            }
+
+            Button(action: {
+                handleAccountClick(account)
+            }) {
+                HStack(spacing: 6) {
+                    if store.multiSelectedAccountIds.count > 1 && isMultiSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(Color(red: 0.0, green: 0.35, blue: 0.20))
+                            .font(.system(size: 10))
+                    }
+
+                    Image(systemName: account.type.iconName)
+                        .foregroundColor(account.type == .creditCard ? .orange : Color(red: 0.0, green: 0.35, blue: 0.20))
+                        .frame(width: 18, alignment: .center)
+
+                    Text(account.name)
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Spacer(minLength: 4)
+
+                    Text(String(format: "$%.2f", account.balance))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(account.balance < 0 ? .red : .secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    isTargeted && currentDropZone == .onTarget
+                        ? Color.green.opacity(0.25)
+                        : (isSelected || isMultiSelected ? Color.accentColor.opacity(0.18) : Color.clear)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .stroke(isTargeted && currentDropZone == .onTarget ? Color.green : Color.clear, lineWidth: 1.5)
+                )
+                .cornerRadius(5)
+                .opacity(isDraggingThis ? 0.4 : 1.0)
+            }
+            .buttonStyle(.plain)
+            .onDrag {
+                draggedAccountId = account.id
+                return NSItemProvider(object: account.id as NSString)
+            }
+            .onDrop(of: [.plainText, .text], delegate: AccountDropDelegate(
+                targetAccount: account,
+                store: store,
+                draggedAccountId: $draggedAccountId,
+                currentDropTargetId: $currentDropTargetId,
+                currentDropZone: $currentDropZone
+            ))
+            .contextMenu {
+                Button("Open Register") {
+                    store.selectedAccountId = account.id
+                    store.multiSelectedAccountIds = [account.id]
+                    store.activeQuickTab = "register"
+                }
+
+                if store.accounts.count > 1 {
+                    Button("Merge…") {
+                        triggerMergeFromAccount(account)
+                    }
+                }
+
+                Divider()
+
+                Button("Delete Account…", role: .destructive) {
+                    store.deleteAccount(id: account.id)
+                }
+            }
+
+            // Drop indicator below
+            if isTargeted && currentDropZone == .below {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(height: 2)
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private func handleAccountClick(_ account: Account) {
+        let flags = NSApp.currentEvent?.modifierFlags ?? []
+        if flags.contains(.command) {
+            if store.multiSelectedAccountIds.contains(account.id) {
+                store.multiSelectedAccountIds.remove(account.id)
+            } else {
+                store.multiSelectedAccountIds.insert(account.id)
+            }
+            if let first = store.multiSelectedAccountIds.first {
+                store.selectedAccountId = first
+            }
+        } else if flags.contains(.shift) {
+            if let selId = store.selectedAccountId,
+               let startIdx = store.accounts.firstIndex(where: { $0.id == selId }),
+               let endIdx = store.accounts.firstIndex(where: { $0.id == account.id }) {
+                let low = min(startIdx, endIdx)
+                let high = max(startIdx, endIdx)
+                for i in low...high {
+                    store.multiSelectedAccountIds.insert(store.accounts[i].id)
+                }
+            } else {
+                store.multiSelectedAccountIds = [account.id]
+                store.selectedAccountId = account.id
+            }
+        } else {
+            store.multiSelectedAccountIds = [account.id]
+            store.selectedAccountId = account.id
+            store.activeQuickTab = "register"
+        }
+    }
+
+    private func triggerMergeFromAccount(_ account: Account) {
+        if store.multiSelectedAccountIds.contains(account.id) && store.multiSelectedAccountIds.count > 1 {
+            store.pendingMergeSourceIds = Array(store.multiSelectedAccountIds.filter { $0 != account.id })
+            store.pendingMergeTargetId = account.id
+        } else {
+            store.pendingMergeSourceIds = [account.id]
+            store.pendingMergeTargetId = store.accounts.first(where: { $0.id != account.id })?.id
+        }
+        store.isMergeSheetPresented = true
     }
 
     private func sidebarButton(id: String, title: String, icon: String, badge: String? = nil) -> some View {
@@ -110,5 +234,70 @@ public struct SidebarView: View {
             .cornerRadius(5)
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct AccountDropDelegate: DropDelegate {
+    let targetAccount: Account
+    let store: DataStore
+    @Binding var draggedAccountId: String?
+    @Binding var currentDropTargetId: String?
+    @Binding var currentDropZone: DropZone?
+
+    func dropEntered(info: DropInfo) {
+        currentDropTargetId = targetAccount.id
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard let sourceId = draggedAccountId, sourceId != targetAccount.id else {
+            return DropProposal(operation: .cancel)
+        }
+        let y = info.location.y
+        if y < 7 {
+            currentDropZone = .above
+        } else if y > 21 {
+            currentDropZone = .below
+        } else {
+            currentDropZone = .onTarget
+        }
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        if currentDropTargetId == targetAccount.id {
+            currentDropTargetId = nil
+            currentDropZone = nil
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        let sourceId = draggedAccountId
+        let zone = currentDropZone
+        currentDropTargetId = nil
+        currentDropZone = nil
+        draggedAccountId = nil
+
+        guard let srcId = sourceId, srcId != targetAccount.id else { return false }
+
+        switch zone {
+        case .above:
+            store.moveAccount(id: srcId, before: targetAccount.id)
+            return true
+        case .below:
+            store.moveAccount(id: srcId, after: targetAccount.id)
+            return true
+        case .onTarget:
+            // Dragged on top of target: trigger merge dialog!
+            if store.multiSelectedAccountIds.contains(srcId) && store.multiSelectedAccountIds.count > 1 {
+                store.pendingMergeSourceIds = Array(store.multiSelectedAccountIds.filter { $0 != targetAccount.id })
+            } else {
+                store.pendingMergeSourceIds = [srcId]
+            }
+            store.pendingMergeTargetId = targetAccount.id
+            store.isMergeSheetPresented = true
+            return true
+        case .none:
+            return false
+        }
     }
 }

@@ -20,6 +20,7 @@ TEST_SOURCES=(
     native/Sources/Services/OFXParser.swift
     native/Sources/Services/QDFInspector.swift
     native/Sources/Services/DatasetScanner.swift
+    native/Sources/Services/DataStore.swift
     native/Tests/HasteTests.swift
     native/Tests/main.swift
 )

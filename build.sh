@@ -52,6 +52,7 @@ SOURCES=(
     native/Sources/Views/SplitEditorSheet.swift
     native/Sources/Views/SettingsView.swift
     native/Sources/Views/ImportExportSheet.swift
+    native/Sources/Views/MergeAccountsSheet.swift
     native/Sources/Views/ContentView.swift
     native/Sources/App/HasteApp.swift
 )

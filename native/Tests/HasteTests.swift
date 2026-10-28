@@ -217,6 +217,75 @@ public struct TestRunner {
         assert(parsedOfx.first?.transactions.count == 2, "OFX parsed 2 transactions (got \(parsedOfx.first?.transactions.count ?? 0))")
         assert(abs((parsedOfx.first?.balance ?? 0) - 104.50) < 0.01, "OFX calculated correct balance $104.50 (got \(parsedOfx.first?.balance ?? 0))")
 
+        // Test 16: Account Reordering
+        let testStore = DataStore()
+        let acctA = Account(id: "id_a", name: "Account Alpha", type: .bank)
+        let acctB = Account(id: "id_b", name: "Account Beta", type: .bank)
+        let acctC = Account(id: "id_c", name: "Account Gamma", type: .bank)
+        testStore.accounts = [acctA, acctB, acctC]
+
+        testStore.moveAccount(id: "id_c", before: "id_a")
+        assert(testStore.accounts.map { $0.id } == ["id_c", "id_a", "id_b"], "Moved Gamma before Alpha")
+
+        testStore.moveAccount(id: "id_b", before: "id_a")
+        assert(testStore.accounts.map { $0.id } == ["id_c", "id_b", "id_a"], "Moved Beta before Alpha")
+
+        testStore.moveAccount(id: "id_c", after: "id_a")
+        assert(testStore.accounts.map { $0.id } == ["id_b", "id_a", "id_c"], "Moved Gamma after Alpha")
+
+        // Test 17: Account Merging with Deduplication
+        let date1 = Date(timeIntervalSince1970: 1020000000)
+        let date2 = Date(timeIntervalSince1970: 1020086400)
+        let date3 = Date(timeIntervalSince1970: 1020172800)
+
+        let txA1 = Transaction(accountName: "Target Checking", date: date1, payee: "Target", amount: -25.00)
+        let txA2 = Transaction(accountName: "Target Checking", date: date2, payee: "Grocery Store", amount: -50.00)
+        let mergeTarget = Account(id: "target_acct", name: "Target Checking", type: .bank, balance: -75.00, transactions: [txA1, txA2])
+
+        let txB1 = Transaction(accountName: "Old Checking", date: date1, payee: "Target", amount: -25.00) // Duplicate
+        let txB2 = Transaction(accountName: "Old Checking", date: date3, payee: "Gas Station", amount: -30.00) // Unique
+        let mergeSource = Account(id: "source_acct", name: "Old Checking", type: .bank, balance: -55.00, transactions: [txB1, txB2])
+
+        testStore.accounts = [mergeTarget, mergeSource]
+        testStore.scheduledBills = [ScheduledBill(payee: "Electric Co", amount: 65.00, frequency: .monthly, nextDueDate: date3, accountName: "Old Checking")]
+
+        let mergeRes = testStore.mergeAccounts(sourceAccountIds: ["source_acct"], targetAccountId: "target_acct", deduplicateTransactions: true)
+        assert(mergeRes.importedCount == 1, "Merge imported 1 unique transaction (got \(mergeRes.importedCount))")
+        assert(mergeRes.skippedCount == 1, "Merge skipped 1 duplicate transaction (got \(mergeRes.skippedCount))")
+        assert(testStore.accounts.count == 1, "Source account was removed after merge")
+        assert(testStore.accounts.first?.id == "target_acct", "Target account preserved")
+        assert(testStore.accounts.first?.transactions.count == 3, "Target account has 3 total transactions (got \(testStore.accounts.first?.transactions.count ?? 0))")
+        assert(abs((testStore.accounts.first?.balance ?? 0) - (-105.00)) < 0.01, "Target account balance is -$105.00 (got \(testStore.accounts.first?.balance ?? 0))")
+        assert(testStore.scheduledBills.first?.accountName == "Target Checking", "Scheduled bill account name was updated to target account name")
+
+        // Test 18: Account Merging with Deduplication Disabled
+        let txC1 = Transaction(accountName: "Account C", date: date1, payee: "ATM", amount: -40.00)
+        let acctC_obj = Account(id: "acct_c", name: "Account C", type: .bank, balance: -40.00, transactions: [txC1])
+        let txD1 = Transaction(accountName: "Account D", date: date1, payee: "ATM", amount: -40.00)
+        let acctD_obj = Account(id: "acct_d", name: "Account D", type: .bank, balance: -40.00, transactions: [txD1])
+
+        testStore.accounts = [acctC_obj, acctD_obj]
+        let mergeResNoDedup = testStore.mergeAccounts(sourceAccountIds: ["acct_d"], targetAccountId: "acct_c", deduplicateTransactions: false)
+        assert(mergeResNoDedup.importedCount == 1, "Non-deduplicated merge imported identical transaction (got \(mergeResNoDedup.importedCount))")
+        assert(mergeResNoDedup.skippedCount == 0, "Non-deduplicated merge skipped 0 transactions")
+        assert(testStore.accounts.first?.transactions.count == 2, "Account C has 2 transactions when deduplication is false")
+        assert(abs((testStore.accounts.first?.balance ?? 0) - (-80.00)) < 0.01, "Account C balance is -$80.00")
+
+        // Test 19: Multi-Account Merge (2 sources into 1 target)
+        let txE1 = Transaction(accountName: "Account E", date: date1, payee: "Payroll", amount: 1000.00)
+        let acctE = Account(id: "acct_e", name: "Account E", type: .bank, balance: 1000.00, transactions: [txE1])
+        let txF1 = Transaction(accountName: "Account F", date: date2, payee: "Dinner", amount: -45.00)
+        let acctF = Account(id: "acct_f", name: "Account F", type: .creditCard, balance: -45.00, transactions: [txF1])
+        let txG1 = Transaction(accountName: "Account G", date: date3, payee: "Coffee", amount: -5.00)
+        let acctG = Account(id: "acct_g", name: "Account G", type: .cash, balance: -5.00, transactions: [txG1])
+
+        testStore.accounts = [acctE, acctF, acctG]
+        let multiMergeRes = testStore.mergeAccounts(sourceAccountIds: ["acct_f", "acct_g"], targetAccountId: "acct_e", deduplicateTransactions: true)
+        assert(multiMergeRes.importedCount == 2, "Multi-merge imported 2 transactions (got \(multiMergeRes.importedCount))")
+        assert(testStore.accounts.count == 1, "Both source accounts removed")
+        assert(testStore.accounts.first?.transactions.count == 3, "Account E has 3 total transactions")
+        assert(abs((testStore.accounts.first?.balance ?? 0) - 950.00) < 0.01, "Account E balance is $950.00 (got \(testStore.accounts.first?.balance ?? 0))")
+
         print("\nSummary: \(passed) passed, \(failed) failed.")
         return failed == 0
     }

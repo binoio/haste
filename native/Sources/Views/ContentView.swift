@@ -48,6 +48,9 @@ public struct ContentView: View {
             importExportMode = .exportData
             showingImportExportSheet = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openMergeAccountsSheet)) { _ in
+            prepareAndShowMergeSheet()
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: toggleSidebar) {
@@ -108,6 +111,9 @@ public struct ContentView: View {
                 mode: $importExportMode
             )
         }
+        .sheet(isPresented: $store.isMergeSheetPresented) {
+            MergeAccountsSheet(store: store, isPresented: $store.isMergeSheetPresented)
+        }
     }
 
     @ViewBuilder
@@ -147,5 +153,23 @@ public struct ContentView: View {
         if panel.runModal() == .OK, let url = panel.url {
             store.loadDirectory(path: url.path)
         }
+    }
+
+    private func prepareAndShowMergeSheet() {
+        guard store.accounts.count >= 2 else { return }
+        if store.multiSelectedAccountIds.count >= 2 {
+            let selectedList = store.accounts.filter { store.multiSelectedAccountIds.contains($0.id) }
+            if let first = selectedList.first {
+                store.pendingMergeTargetId = first.id
+                store.pendingMergeSourceIds = selectedList.dropFirst().map { $0.id }
+            }
+        } else if let selId = store.selectedAccountId {
+            store.pendingMergeSourceIds = [selId]
+            store.pendingMergeTargetId = store.accounts.first(where: { $0.id != selId })?.id
+        } else {
+            store.pendingMergeSourceIds = [store.accounts[0].id]
+            store.pendingMergeTargetId = store.accounts[1].id
+        }
+        store.isMergeSheetPresented = true
     }
 }
