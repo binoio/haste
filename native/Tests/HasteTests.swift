@@ -217,8 +217,11 @@ public struct TestRunner {
         assert(parsedOfx.first?.transactions.count == 2, "OFX parsed 2 transactions (got \(parsedOfx.first?.transactions.count ?? 0))")
         assert(abs((parsedOfx.first?.balance ?? 0) - 104.50) < 0.01, "OFX calculated correct balance $104.50 (got \(parsedOfx.first?.balance ?? 0))")
 
-        // Test 16: Account Reordering
-        let testStore = DataStore()
+        // Test 16: Account Reordering (isolated sandbox to never touch live user data)
+        let sandboxDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("HasteTests_\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: sandboxDir, withIntermediateDirectories: true)
+        let sandboxDataFile = sandboxDir.appendingPathComponent("test_haste_data.json")
+        let testStore = DataStore(dataDirectoryURL: sandboxDir, dataFileURL: sandboxDataFile)
         let acctA = Account(id: "id_a", name: "Account Alpha", type: .bank)
         let acctB = Account(id: "id_b", name: "Account Beta", type: .bank)
         let acctC = Account(id: "id_c", name: "Account Gamma", type: .bank)
@@ -301,6 +304,7 @@ public struct TestRunner {
         testStore.deleteAccount(id: "acct_ren")
         assert(testStore.accounts.isEmpty, "Account removed on delete")
         assert(!testStore.multiSelectedAccountIds.contains("acct_ren"), "Deleted account removed from multi-selection")
+        try? FileManager.default.removeItem(at: sandboxDir)
 
         print("\nSummary: \(passed) passed, \(failed) failed.")
         return failed == 0

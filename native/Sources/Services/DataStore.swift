@@ -105,13 +105,21 @@ public final class DataStore: ObservableObject {
     @Published public var pendingMergeTargetId: String? = nil
     @Published public var isMergeSheetPresented: Bool = false
 
-    public init() {
-        loadedDirectoryPath = DataStore.standardDataDirectoryURL.path
+    public let dataDirectoryURL: URL
+    public let dataFileURL: URL
+
+    public init(
+        dataDirectoryURL: URL = DataStore.standardDataDirectoryURL,
+        dataFileURL: URL = DataStore.standardDataFileURL
+    ) {
+        self.dataDirectoryURL = dataDirectoryURL
+        self.dataFileURL = dataFileURL
+        self.loadedDirectoryPath = dataDirectoryURL.path
         loadStandardData()
     }
 
     public func loadStandardData() {
-        let fileURL = DataStore.standardDataFileURL
+        let fileURL = dataFileURL
         if FileManager.default.fileExists(atPath: fileURL.path) {
             do {
                 let data = try Data(contentsOf: fileURL)
@@ -132,7 +140,7 @@ public final class DataStore: ObservableObject {
         }
 
         // If no JSON payload exists, scan standard directory for any .qif files
-        let standardPath = DataStore.standardDataDirectoryURL.path
+        let standardPath = dataDirectoryURL.path
         var loadedAccounts: [Account] = []
         if let items = try? FileManager.default.contentsOfDirectory(atPath: standardPath) {
             for item in items where item.lowercased().hasSuffix(".qif") {
@@ -159,6 +167,15 @@ public final class DataStore: ObservableObject {
     }
 
     public func saveStandardData() {
+        // Automatic backup before saving to prevent any data loss
+        if FileManager.default.fileExists(atPath: dataFileURL.path) {
+            let backupDir = dataDirectoryURL.appendingPathComponent("Backups", isDirectory: true)
+            try? FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
+            let backupFile = backupDir.appendingPathComponent("haste_data_latest.json")
+            try? FileManager.default.removeItem(at: backupFile)
+            try? FileManager.default.copyItem(at: dataFileURL, to: backupFile)
+        }
+
         let payload = HasteDataPayload(
             accounts: accounts,
             scheduledBills: scheduledBills,
@@ -168,7 +185,7 @@ public final class DataStore: ObservableObject {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         if let data = try? encoder.encode(payload) {
-            try? data.write(to: DataStore.standardDataFileURL, options: .atomic)
+            try? data.write(to: dataFileURL, options: .atomic)
         }
     }
 

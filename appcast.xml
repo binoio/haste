@@ -6,6 +6,24 @@
     <description>Most recent updates for Haste for Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>Haste 1.0.8</title>
+      <pubDate>Tue, 27 Oct 2026 22:33:00 -0400</pubDate>
+      <sparkle:version>9</sparkle:version>
+      <sparkle:shortVersionString>1.0.8</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.8 Update</h2>
+        <ul>
+          <li>Fixed data persistence isolation: test suites now run strictly within temporary sandboxes and will never touch or overwrite user data in ~/Library/Application Support/Haste/.</li>
+          <li>Added automatic pre-save data backups in ~/Library/Application Support/Haste/Backups/ to guarantee zero data loss.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.8/Haste.zip"
+                 sparkle:version="9"
+                 sparkle:shortVersionString="1.0.8"
+                 type="application/octet-stream" />
+    </item>
+    <item>
       <title>Haste 1.0.7</title>
       <pubDate>Tue, 27 Oct 2026 22:25:00 -0400</pubDate>
       <sparkle:version>8</sparkle:version>
