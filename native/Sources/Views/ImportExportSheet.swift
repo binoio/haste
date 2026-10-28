@@ -383,8 +383,27 @@ public struct ImportExportSheet: View {
             if ext == "qif" {
                 if content.contains("!Account") {
                     let parsedAccts = QIFParser.parseMultiAccountQIF(content: content)
-                    importPreviewTxs = parsedAccts.flatMap { $0.transactions }
-                    importStatus = "Found \(parsedAccts.count) account(s) with \(importPreviewTxs.count) transactions in multi-account QIF."
+                    let total = parsedAccts.reduce(0) { $0 + $1.transactions.count }
+                    let discovered = parsedAccts.map { a in
+                        let latestYear: Int = {
+                            guard let latest = a.transactions.last?.date else { return 1999 }
+                            return Calendar.current.component(.year, from: latest)
+                        }()
+                        let era = (latestYear >= 2003) ? "2003–2007 (Mac Era)" : (latestYear >= 2001 ? "2001–2002 (PC Era)" : "1998–2000 (Win32 Era)")
+                        return DiscoveredAccountSource(sourceType: "QIF Export", name: a.name, era: era, fileURL: url, account: a)
+                    }
+                    self.datasetScan = DatasetScanResult(
+                        datasetName: url.deletingPathExtension().lastPathComponent,
+                        folderPath: url.deletingLastPathComponent().path,
+                        qdfMetadata: nil,
+                        qsdMetadata: nil,
+                        discoveredAccounts: discovered,
+                        extractedAccountNames: parsedAccts.map { $0.name },
+                        extractedCategories: []
+                    )
+                    self.importPreviewTxs = []
+                    self.importStatus = "Found \(parsedAccts.count) account(s) with \(total) transactions in multi-account QIF."
+                    return
                 } else {
                     let parsedAcct = QIFParser.parse(content: content, accountName: url.deletingPathExtension().lastPathComponent)
                     importPreviewTxs = parsedAcct.transactions

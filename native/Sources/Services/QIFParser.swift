@@ -113,21 +113,23 @@ public final class QIFParser {
                 tempSplitCategory = ""
                 tempSplitMemo = ""
             case "^":
-                // End of transaction record
-                let tx = Transaction(
-                    accountName: accountName,
-                    date: curDate,
-                    dateString: curDateString,
-                    checkNumber: curCheckNum,
-                    payee: curPayee,
-                    memo: curMemo,
-                    category: curCategory,
-                    amount: curAmount,
-                    clearedStatus: curCleared,
-                    splits: curSplits,
-                    runningBalance: 0.0
-                )
-                transactions.append(tx)
+                // End of transaction record (only record if date is valid)
+                if !curDateString.isEmpty {
+                    let tx = Transaction(
+                        accountName: accountName,
+                        date: curDate,
+                        dateString: curDateString,
+                        checkNumber: curCheckNum,
+                        payee: curPayee,
+                        memo: curMemo,
+                        category: curCategory,
+                        amount: curAmount,
+                        clearedStatus: curCleared,
+                        splits: curSplits,
+                        runningBalance: 0.0
+                    )
+                    transactions.append(tx)
+                }
 
                 // Reset record state
                 curDate = Date(timeIntervalSince1970: 0)
@@ -276,25 +278,26 @@ public final class QIFParser {
             if trimmed.isEmpty { continue }
 
             if trimmed.hasPrefix("!") {
-                if trimmed == "!Account" {
+                let lower = trimmed.lowercased()
+                if lower == "!account" {
                     if activeSection == .transactions && !currentLines.isEmpty {
                         var acct = parse(content: currentLines.joined(separator: "\n"), accountName: currentAccountName)
                         acct.type = currentAccountType
-                        accounts.append(acct)
+                        if !acct.transactions.isEmpty { accounts.append(acct) }
                         currentLines = []
                     }
                     activeSection = .accountHeader
                     continue
-                } else if trimmed.hasPrefix("!Type:Cat") {
+                } else if lower.hasPrefix("!type:cat") || lower.hasPrefix("!type:class") || lower.hasPrefix("!type:memorized") || lower.hasPrefix("!type:budget") || lower.hasPrefix("!type:security") {
                     if activeSection == .transactions && !currentLines.isEmpty {
                         var acct = parse(content: currentLines.joined(separator: "\n"), accountName: currentAccountName)
                         acct.type = currentAccountType
-                        accounts.append(acct)
+                        if !acct.transactions.isEmpty { accounts.append(acct) }
                         currentLines = []
                     }
                     activeSection = .categories
                     continue
-                } else if trimmed.hasPrefix("!Type:") {
+                } else if lower.hasPrefix("!type:") {
                     activeSection = .transactions
                     currentLines.append(trimmed)
                     continue
@@ -329,7 +332,9 @@ public final class QIFParser {
         if !currentLines.isEmpty {
             var acct = parse(content: currentLines.joined(separator: "\n"), accountName: currentAccountName)
             acct.type = currentAccountType
-            accounts.append(acct)
+            if !acct.transactions.isEmpty {
+                accounts.append(acct)
+            }
         }
 
         return accounts.isEmpty ? [parse(content: content, accountName: "Imported")] : accounts

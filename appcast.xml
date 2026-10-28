@@ -6,6 +6,24 @@
     <description>Most recent updates for Haste for Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>Haste 1.0.5</title>
+      <pubDate>Tue, 27 Oct 2026 21:40:00 -0400</pubDate>
+      <sparkle:version>6</sparkle:version>
+      <sparkle:shortVersionString>1.0.5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.5 Update</h2>
+        <ul>
+          <li>Interactive multi-account QIF batch import: automatically detects multiple accounts inside compound QIF files and previews registers separately instead of lumping them into a single account.</li>
+          <li>Filters out memorized transaction templates and non-dated budget envelopes from transaction imports.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.5/Haste.zip"
+                 sparkle:version="6"
+                 sparkle:shortVersionString="1.0.5"
+                 type="application/octet-stream" />
+    </item>
+    <item>
       <title>Haste 1.0.4</title>
       <pubDate>Tue, 27 Oct 2026 20:45:00 -0400</pubDate>
       <sparkle:version>5</sparkle:version>
