@@ -1,6 +1,21 @@
 import Foundation
+
+#if canImport(SwiftUI)
 import SwiftUI
-import Combine
+#else
+// DataStore's persistence and calculation logic is also exercised in Linux CI.
+// The test build does not need SwiftUI's observation notifications.
+public protocol ObservableObject: AnyObject {}
+
+@propertyWrapper
+public struct Published<Value> {
+    public var wrappedValue: Value
+
+    public init(wrappedValue: Value) {
+        self.wrappedValue = wrappedValue
+    }
+}
+#endif
 
 public enum QuickenCenter: String, CaseIterable, Identifiable {
     case banking = "Banking"
