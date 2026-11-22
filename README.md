@@ -30,6 +30,7 @@ A personal finance suite for the sole purpose of recovery and viewing data from 
 - **Account Management**: Create and manage Bank, Credit Card, Cash, Investment, Asset, and Liability accounts with custom opening balances.
 - **Binary Data Inspector**: Real-time inspection of era `.QDF`, `.QSD`, and `.QEL` files with page alignment, magic numbers, and encryption metadata.
 - **Batch Dataset & QIF Round-Trip**: Directly reads all historical financial datasets with full QIF and CSV import/export support.
+- **Full Data Backup & Restore**: Save complete Haste data snapshots as JSON and restore them later, including from iCloud Drive.
 
 ---
 

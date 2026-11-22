@@ -6,6 +6,24 @@
     <description>Most recent updates for Haste for Apple Silicon.</description>
     <language>en</language>
     <item>
+      <title>Haste 1.0.9</title>
+      <pubDate>Sun, 22 Nov 2026 14:42:05 -0500</pubDate>
+      <sparkle:version>10</sparkle:version>
+      <sparkle:shortVersionString>1.0.9</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Haste 1.0.9 Update</h2>
+        <ul>
+          <li>Added full-fidelity JSON backup and restore for accounts, transactions, scheduled bills, and budgets. Backups can be saved to iCloud Drive through the standard macOS file dialog.</li>
+          <li>Restores confirm the dataset before replacing current data and preserve a local safety backup.</li>
+        </ul>
+      ]]></description>
+      <enclosure url="https://github.com/binoio/haste/releases/download/v1.0.9/Haste.zip"
+                 sparkle:version="10"
+                 sparkle:shortVersionString="1.0.9"
+                 type="application/octet-stream" />
+    </item>
+    <item>
       <title>Haste 1.0.8</title>
       <pubDate>Tue, 27 Oct 2026 22:33:00 -0400</pubDate>
       <sparkle:version>9</sparkle:version>

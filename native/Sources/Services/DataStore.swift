@@ -182,26 +182,120 @@ public final class DataStore: ObservableObject {
     }
 
     public func saveStandardData() {
-        // Automatic backup before saving to prevent any data loss
-        if FileManager.default.fileExists(atPath: dataFileURL.path) {
-            let backupDir = dataDirectoryURL.appendingPathComponent("Backups", isDirectory: true)
-            try? FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
-            let backupFile = backupDir.appendingPathComponent("haste_data_latest.json")
-            try? FileManager.default.removeItem(at: backupFile)
-            try? FileManager.default.copyItem(at: dataFileURL, to: backupFile)
+        let payload = currentDataPayload()
+        do {
+            try persist(payload, backingUpCurrentData: true)
+        } catch {
+            print("Notice: could not save standard data: \(error.localizedDescription)")
         }
+    }
 
-        let payload = HasteDataPayload(
+    /// Writes a complete Haste data snapshot to the user-selected location.
+    public func createBackup(at url: URL) throws {
+        let data = try encode(currentDataPayload())
+        try coordinateWrite(data, to: url)
+    }
+
+    /// Decodes a backup without changing the current data, so the UI can confirm before restoring.
+    public func readBackup(from url: URL) throws -> HasteDataPayload {
+        let data = try coordinateRead(from: url)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(HasteDataPayload.self, from: data)
+    }
+
+    /// Replaces the current dataset after first preserving it in Haste's local Backups folder.
+    public func restoreBackup(_ payload: HasteDataPayload) throws {
+        try persist(payload, backingUpCurrentData: true, snapshotMemoryIfNoFile: true)
+        accounts = payload.accounts
+        scheduledBills = payload.scheduledBills
+        budgetCategories = payload.budgetCategories
+        selectedAccountId = payload.accounts.first?.id
+        multiSelectedAccountIds = selectedAccountId.map { [$0] } ?? []
+    }
+
+    private func currentDataPayload() -> HasteDataPayload {
+        HasteDataPayload(
             accounts: accounts,
             scheduledBills: scheduledBills,
             budgetCategories: budgetCategories
         )
+    }
+
+    private func encode(_ payload: HasteDataPayload) throws -> Data {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
-        if let data = try? encoder.encode(payload) {
-            try? data.write(to: dataFileURL, options: .atomic)
+        return try encoder.encode(payload)
+    }
+
+    private func persist(
+        _ payload: HasteDataPayload,
+        backingUpCurrentData: Bool,
+        snapshotMemoryIfNoFile: Bool = false
+    ) throws {
+        let data = try encode(payload)
+        try FileManager.default.createDirectory(at: dataDirectoryURL, withIntermediateDirectories: true)
+
+        if backingUpCurrentData {
+            let backupDir = dataDirectoryURL.appendingPathComponent("Backups", isDirectory: true)
+            try FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
+            let backupFile = backupDir.appendingPathComponent("haste_data_latest.json")
+            if FileManager.default.fileExists(atPath: backupFile.path) {
+                try FileManager.default.removeItem(at: backupFile)
+            }
+            if FileManager.default.fileExists(atPath: dataFileURL.path) {
+                try FileManager.default.copyItem(at: dataFileURL, to: backupFile)
+            } else if snapshotMemoryIfNoFile {
+                try encode(currentDataPayload()).write(to: backupFile, options: .atomic)
+            }
         }
+
+        try data.write(to: dataFileURL, options: .atomic)
+    }
+
+    private func coordinateRead(from url: URL) throws -> Data {
+        #if os(macOS)
+        let coordinator = NSFileCoordinator()
+        var coordinationError: NSError?
+        var operationError: Error?
+        var result: Data?
+        coordinator.coordinate(readingItemAt: url, options: .withoutChanges, error: &coordinationError) { coordinatedURL in
+            do {
+                result = try Data(contentsOf: coordinatedURL)
+            } catch {
+                operationError = error
+            }
+        }
+        if let coordinationError { throw coordinationError }
+        if let operationError { throw operationError }
+        guard let result else {
+            throw CocoaError(.fileReadUnknown)
+        }
+        return result
+        #else
+        return try Data(contentsOf: url)
+        #endif
+    }
+
+    private func coordinateWrite(_ data: Data, to url: URL) throws {
+        #if os(macOS)
+        let coordinator = NSFileCoordinator()
+        var coordinationError: NSError?
+        var operationError: Error?
+        let options: NSFileCoordinator.WritingOptions = FileManager.default.fileExists(atPath: url.path) ? .forReplacing : []
+        coordinator.coordinate(writingItemAt: url, options: options, error: &coordinationError) { coordinatedURL in
+            do {
+                try data.write(to: coordinatedURL, options: .atomic)
+            } catch {
+                operationError = error
+            }
+        }
+        if let coordinationError { throw coordinationError }
+        if let operationError { throw operationError }
+        #else
+        try data.write(to: url, options: .atomic)
+        #endif
     }
 
     public var selectedAccount: Account? {

@@ -1,10 +1,13 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 public struct SettingsView: View {
     @ObservedObject var settings = AppSettings.shared
     @ObservedObject var store: DataStore = DataStore.shared
     @ObservedObject var sparkle = SparkleManager.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var backupStatus = ""
 
     public init(store: DataStore = DataStore.shared) {
         self.store = store
@@ -43,7 +46,7 @@ public struct SettingsView: View {
                 }
         }
         .padding(16)
-        .frame(width: 540, height: 380)
+        .frame(width: 540, height: 440)
     }
 
     // MARK: - General Tab
@@ -87,8 +90,29 @@ public struct SettingsView: View {
                         Label("Reveal in Finder", systemImage: "folder.badge.gearshape")
                     }
                 }
+
+                HStack {
+                    Button(action: createBackup) {
+                        Label("Back Up…", systemImage: "icloud.and.arrow.up")
+                    }
+
+                    Button(action: restoreBackup) {
+                        Label("Restore…", systemImage: "icloud.and.arrow.down")
+                    }
+                }
+
+                Text("Save a complete backup or restore one from a file. Choose iCloud Drive in the file dialog to keep a copy there.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                if !backupStatus.isEmpty {
+                    Text(backupStatus)
+                        .font(.caption)
+                        .foregroundColor(backupStatus.hasPrefix("Could not") ? .red : .secondary)
+                        .textSelection(.enabled)
+                }
             } header: {
-                Text("Data Storage Location")
+                Text("Data Storage & Backups")
                     .font(.headline)
             }
         }
@@ -246,5 +270,59 @@ public struct SettingsView: View {
     private func revealDataLocationInFinder() {
         let dirURL = DataStore.standardDataDirectoryURL
         NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: dirURL.path)
+    }
+
+    private func createBackup() {
+        let panel = NSSavePanel()
+        panel.title = "Back Up Haste Data"
+        panel.prompt = "Save Backup"
+        panel.nameFieldStringValue = "Haste Backup \(Date.now.formatted(.iso8601.year().month().day())).json"
+        panel.allowedContentTypes = [.json]
+        panel.isExtensionHidden = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try store.createBackup(at: url)
+            backupStatus = "Backup saved to \(url.lastPathComponent)."
+        } catch {
+            showBackupError("Could not save the backup", error: error)
+        }
+    }
+
+    private func restoreBackup() {
+        let panel = NSOpenPanel()
+        panel.title = "Restore Haste Data"
+        panel.prompt = "Choose Backup"
+        panel.allowedContentTypes = [.json]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let payload = try store.readBackup(from: url)
+            let transactionCount = payload.accounts.reduce(0) { $0 + $1.transactions.count }
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Replace Haste’s Current Data?"
+            alert.informativeText = "This backup contains \(payload.accounts.count) accounts and \(transactionCount) transactions. Restoring replaces the current accounts, bills, and budgets. Haste will keep a local backup of the current data first."
+            alert.addButton(withTitle: "Restore Backup")
+            alert.addButton(withTitle: "Cancel")
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+            try store.restoreBackup(payload)
+            backupStatus = "Restored \(url.lastPathComponent)."
+        } catch {
+            showBackupError("Could not restore the backup", error: error)
+        }
+    }
+
+    private func showBackupError(_ message: String, error: Error) {
+        backupStatus = "Could not complete the operation: \(error.localizedDescription)"
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = message
+        alert.informativeText = error.localizedDescription
+        alert.runModal()
     }
 }
